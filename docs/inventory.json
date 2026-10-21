@@ -3,33 +3,167 @@
   "repository": {
     "code_license": "MIT OR Apache-2.0",
     "blender_addon_license": "GPL-3.0-or-later",
-    "license_files": ["LICENSE-MIT", "LICENSE-APACHE", "blender_addon/trellis_workbench/LICENSE"]
+    "license_files": [
+      "LICENSE-MIT",
+      "LICENSE-APACHE",
+      "blender_addon/trellis_workbench/LICENSE"
+    ]
   },
   "software": [
-    {"name": "ComfyUI", "version": "0.37.0", "source": "nixpkgs comfyui (Comfy-Org/ComfyUI tag v0.37.0)", "license": "GPL-3.0-only", "role": "generation service (separate process)"},
-    {"name": "torch (ROCm)", "version": "2.13.0", "source": "nixpkgs-rocm pin 419fe0f449b3fbe3bdd53d9840288db4509ec32e, gpuTargets=[gfx1100]", "license": "BSD-3-Clause", "role": "atlas backend"},
-    {"name": "ROCm", "version": "7.2.3", "source": "nixpkgs rocmPackages (Hydra cache)", "license": "MIT AND NCSA AND Apache-2.0", "role": "atlas backend"},
-    {"name": "torch (XPU wheels)", "version": "2.14.1+xpu", "source": "download.pytorch.org (sha256 pinned in nix/xpu-wheels.nix)", "license": "BSD-3-Clause", "role": "murph backend"},
-    {"name": "triton-xpu", "version": "3.8.0", "source": "download.pytorch.org", "license": "MIT", "role": "murph backend"},
-    {"name": "Intel oneAPI runtime wheels", "version": "2026.1.0", "source": "PyPI (sha256 pinned in nix/xpu-wheels.nix)", "license": "LicenseRef-ISSL", "free": false, "redistributable": true, "role": "murph backend"},
-    {"name": "Blender", "version": "5.2", "source": "nixpkgs blender", "license": "GPL-2.0-or-later", "role": "client"},
-    {"name": "trimesh", "source": "nixpkgs", "license": "MIT", "role": "client"},
-    {"name": "numpy", "source": "nixpkgs", "license": "BSD-3-Clause", "role": "client"},
-    {"name": "scipy", "source": "nixpkgs", "license": "BSD-3-Clause", "role": "client"},
-    {"name": "pydantic", "source": "nixpkgs", "license": "MIT", "role": "client"},
-    {"name": "websockets", "source": "nixpkgs", "license": "BSD-3-Clause", "role": "client"},
-    {"name": "Pillow", "source": "nixpkgs", "license": "MIT-CMU", "role": "client"}
+    {
+      "name": "ComfyUI",
+      "version": "0.37.0",
+      "source": "nixpkgs comfyui (Comfy-Org/ComfyUI tag v0.37.0)",
+      "license": "GPL-3.0-only",
+      "role": "generation service (separate process)"
+    },
+    {
+      "name": "torch/torchvision/torchaudio/triton-rocm (ROCm wheels)",
+      "version": "2.14.1+rocm7.2",
+      "source": "download.pytorch.org/whl/rocm7.2, pinned by nix-cache-pin wheel-pins (nix/wheels/rocm.json)",
+      "license": "BSD-3-Clause AND MIT",
+      "role": "atlas backend"
+    },
+    {
+      "name": "ROCm user space bundled in the torch wheel",
+      "version": "7.2",
+      "source": "redistributed inside the pytorch.org ROCm wheel",
+      "license": "MIT AND NCSA AND Apache-2.0",
+      "role": "atlas backend"
+    },
+    {
+      "name": "torch (XPU wheels)",
+      "version": "2.14.1+xpu",
+      "source": "download.pytorch.org (sha256 pinned in nix/wheels/xpu.json)",
+      "license": "BSD-3-Clause",
+      "role": "murph backend"
+    },
+    {
+      "name": "triton-xpu",
+      "version": "3.8.0",
+      "source": "download.pytorch.org",
+      "license": "MIT",
+      "role": "murph backend"
+    },
+    {
+      "name": "Intel oneAPI runtime wheels",
+      "version": "2026.1.0",
+      "source": "PyPI (sha256 pinned in nix/wheels/xpu.json)",
+      "license": "LicenseRef-ISSL",
+      "free": false,
+      "redistributable": true,
+      "role": "murph backend"
+    },
+    {
+      "name": "Blender",
+      "version": "5.2",
+      "source": "nixpkgs blender",
+      "license": "GPL-2.0-or-later",
+      "role": "client"
+    },
+    {
+      "name": "trimesh",
+      "source": "nixpkgs",
+      "license": "MIT",
+      "role": "client"
+    },
+    {
+      "name": "numpy",
+      "source": "nixpkgs",
+      "license": "BSD-3-Clause",
+      "role": "client"
+    },
+    {
+      "name": "scipy",
+      "source": "nixpkgs",
+      "license": "BSD-3-Clause",
+      "role": "client"
+    },
+    {
+      "name": "pydantic",
+      "source": "nixpkgs",
+      "license": "MIT",
+      "role": "client"
+    },
+    {
+      "name": "websockets",
+      "source": "nixpkgs",
+      "license": "BSD-3-Clause",
+      "role": "client"
+    },
+    {
+      "name": "Pillow",
+      "source": "nixpkgs",
+      "license": "MIT-CMU",
+      "role": "client"
+    }
   ],
   "models": [
-    {"file": "diffusion_models/trellis_2_bf16.safetensors", "repo": "Comfy-Org/TRELLIS.2", "revision": "430a9d09b2416687018c8fe8edced2ad4858a439", "sha256": "bf8ebe29f2d73722ca8a17b7aa65ef07650eb26d04799ae600482058f96921b5", "upstream": "microsoft/TRELLIS.2-4B", "license": "MIT"},
-    {"file": "diffusion_models/trellis_2_int8_convrot.safetensors", "repo": "Comfy-Org/TRELLIS.2", "revision": "430a9d09b2416687018c8fe8edced2ad4858a439", "sha256": "d01952ad137213f6a868f86b6b877026276f84af5eec23069217475a0bad3a31", "upstream": "microsoft/TRELLIS.2-4B (Comfy-Org quantization)", "license": "MIT"},
-    {"file": "vae/trellis_2_shape_vae_bf16.safetensors", "repo": "Comfy-Org/TRELLIS.2", "revision": "430a9d09b2416687018c8fe8edced2ad4858a439", "sha256": "de0cb4949a76c59ee5c091a995a69bcc8c51d5aeda939f0c641a50d2a72341f4", "license": "MIT"},
-    {"file": "vae/trellis_2_texture_vae_bf16.safetensors", "repo": "Comfy-Org/TRELLIS.2", "revision": "430a9d09b2416687018c8fe8edced2ad4858a439", "sha256": "714e5ebf094a610e12a8e3b5175c18a62f37f6ea4218acb6073644456b73ab0e", "license": "MIT"},
-    {"file": "clip_vision/dino_v3_vit_l.safetensors", "repo": "Comfy-Org/TRELLIS.2", "revision": "430a9d09b2416687018c8fe8edced2ad4858a439", "sha256": "5cb785e458de7c460579082418af81f5c62380c181599344bdc60898c63468ee", "upstream": "facebook/dinov3-vitl16-pretrain-lvd1689m (gated)", "license": "LicenseRef-DINOv3", "license_url": "https://ai.meta.com/resources/models-and-libraries/dinov3-license/", "requires_acceptance": true, "conditions": ["ship license copy with redistributed DINO Materials", "display 'Built with DINOv3'", "no military, nuclear, espionage or weapons use", "trade-control compliance"]},
-    {"file": "background_removal/birefnet.safetensors", "repo": "Comfy-Org/BiRefNet", "revision": "25511f8787e51912e1480706b4e47b8f467fbf72", "sha256": "9ab37426bf4de0567af6b5d21b16151357149139362e6e8992021b8ce356a154", "upstream": "ZhengPeng7/BiRefNet", "license": "MIT"}
+    {
+      "file": "diffusion_models/trellis_2_bf16.safetensors",
+      "repo": "Comfy-Org/TRELLIS.2",
+      "revision": "430a9d09b2416687018c8fe8edced2ad4858a439",
+      "sha256": "bf8ebe29f2d73722ca8a17b7aa65ef07650eb26d04799ae600482058f96921b5",
+      "upstream": "microsoft/TRELLIS.2-4B",
+      "license": "MIT"
+    },
+    {
+      "file": "diffusion_models/trellis_2_int8_convrot.safetensors",
+      "repo": "Comfy-Org/TRELLIS.2",
+      "revision": "430a9d09b2416687018c8fe8edced2ad4858a439",
+      "sha256": "d01952ad137213f6a868f86b6b877026276f84af5eec23069217475a0bad3a31",
+      "upstream": "microsoft/TRELLIS.2-4B (Comfy-Org quantization)",
+      "license": "MIT"
+    },
+    {
+      "file": "vae/trellis_2_shape_vae_bf16.safetensors",
+      "repo": "Comfy-Org/TRELLIS.2",
+      "revision": "430a9d09b2416687018c8fe8edced2ad4858a439",
+      "sha256": "de0cb4949a76c59ee5c091a995a69bcc8c51d5aeda939f0c641a50d2a72341f4",
+      "license": "MIT"
+    },
+    {
+      "file": "vae/trellis_2_texture_vae_bf16.safetensors",
+      "repo": "Comfy-Org/TRELLIS.2",
+      "revision": "430a9d09b2416687018c8fe8edced2ad4858a439",
+      "sha256": "714e5ebf094a610e12a8e3b5175c18a62f37f6ea4218acb6073644456b73ab0e",
+      "license": "MIT"
+    },
+    {
+      "file": "clip_vision/dino_v3_vit_l.safetensors",
+      "repo": "Comfy-Org/TRELLIS.2",
+      "revision": "430a9d09b2416687018c8fe8edced2ad4858a439",
+      "sha256": "5cb785e458de7c460579082418af81f5c62380c181599344bdc60898c63468ee",
+      "upstream": "facebook/dinov3-vitl16-pretrain-lvd1689m (gated)",
+      "license": "LicenseRef-DINOv3",
+      "license_url": "https://ai.meta.com/resources/models-and-libraries/dinov3-license/",
+      "requires_acceptance": true,
+      "conditions": [
+        "ship license copy with redistributed DINO Materials",
+        "display 'Built with DINOv3'",
+        "no military, nuclear, espionage or weapons use",
+        "trade-control compliance"
+      ]
+    },
+    {
+      "file": "background_removal/birefnet.safetensors",
+      "repo": "Comfy-Org/BiRefNet",
+      "revision": "25511f8787e51912e1480706b4e47b8f467fbf72",
+      "sha256": "9ab37426bf4de0567af6b5d21b16151357149139362e6e8992021b8ce356a154",
+      "upstream": "ZhengPeng7/BiRefNet",
+      "license": "MIT"
+    }
   ],
   "rejected": [
-    {"name": "nvdiffrast / nvdiffrec", "license": "LicenseRef-NVIDIA-Source-Code (non-commercial)", "reason": "not needed by native nodes; license"},
-    {"name": "visualbruno/ComfyUI-Trellis2 and forks", "license": "MIT wrapper; depends on the above", "reason": "six HIP extension builds, no Intel path"}
+    {
+      "name": "nvdiffrast / nvdiffrec",
+      "license": "LicenseRef-NVIDIA-Source-Code (non-commercial)",
+      "reason": "not needed by native nodes; license"
+    },
+    {
+      "name": "visualbruno/ComfyUI-Trellis2 and forks",
+      "license": "MIT wrapper; depends on the above",
+      "reason": "six HIP extension builds, no Intel path"
+    }
   ]
 }

@@ -25,9 +25,9 @@ No third-party source code is copied into this repository.
 |---|---|---|---|
 | ComfyUI | 0.37.0 (nixpkgs) | GPL-3.0-only | Used as a separate network service. It contains the native TRELLIS.2 reimplementation. |
 | TRELLIS.2 reference code | microsoft/TRELLIS.2 | MIT | The architecture behind the native nodes. |
-| PyTorch (ROCm build) | 2.13.0, nixpkgs `nixpkgs-rocm` pin, `gpuTargets = ["gfx1100"]` | BSD-3-Clause | Built from source by Nix. |
-| ROCm 7.2.3 user space | nixpkgs | MIT / NCSA / Apache-2.0 (per component) | Prebuilt by Hydra. The host's `amdgpu` kernel driver is used. |
-| PyTorch XPU wheels | torch 2.14.1+xpu, torchvision 0.29.1+xpu, torchaudio 2.11.0+xpu, triton-xpu 3.8.0 (sha256 in `nix/xpu-wheels.nix`) | BSD-3-Clause; MIT (triton) | Official pytorch.org binaries. |
+| PyTorch ROCm wheels | torch 2.14.1+rocm7.2, torchvision 0.29.1+rocm7.2, torchaudio 2.11.0+rocm7.2, triton-rocm 3.8.0 (sha256 pinned in `nix/wheels/rocm.json`) | BSD-3-Clause; MIT (triton) | Official pytorch.org binaries. |
+| ROCm 7.2 user space bundled in the torch ROCm wheel | as shipped by pytorch.org (HIP runtime, rocBLAS, hipBLASLt, MIOpen, …) | MIT / NCSA / Apache-2.0 (per component) | Redistributed by PyTorch inside the wheel. The host's `amdgpu` kernel driver is used. |
+| PyTorch XPU wheels | torch 2.14.1+xpu, torchvision 0.29.1+xpu, torchaudio 2.11.0+xpu, triton-xpu 3.8.0 (sha256 pinned in `nix/wheels/xpu.json`) | BSD-3-Clause; MIT (triton) | Official pytorch.org binaries. |
 | Intel oneAPI runtime wheels | 2026.1.0: sycl-rt, cmplr-lib-rt/ur, opencl-rt, openmp, mkl, onemkl-sycl-*, tbb, umf, tcmlib, pti, dpcpp-cpp-rt, impi-rt, oneccl | Intel Simplified Software License (ISSL) | **Unfree but redistributable.** Allowed by a narrow `allowUnfreePredicate` (only `torch-xpu-bin`). |
 | intel-compute-runtime, Level Zero | host `hardware.graphics` (murph) | MIT | User-mode GPU driver, not bundled. |
 | Blender | 5.2 (nixpkgs) | GPL-2.0-or-later (GPL-3.0 as a whole) | The client application. |

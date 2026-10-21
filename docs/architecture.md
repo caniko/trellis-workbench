@@ -46,26 +46,44 @@ Consequences:
 - **Pixal3D** (shipped in the same template). It needs MoGe and a separate model, and it is not part of
   this brief.
 
-## Decision 2 — Nix-native runtime, no containers
+## Decision 2 — Nix-native runtime on official prebuilt torch, never compiled
 
-- **atlas (RX 7900 XTX, gfx1100).** The runtime is `pkgsPrimaryGpu.comfyui` from canix's `nixpkgs-rocm`
-  pin (ROCm 7.2.3, torch 2.13).
-  - Every ROCm library comes from cache.nixos.org.
-  - torch itself is not cached at that pin. It is built once with `gpuTargets = ["gfx1100"]` and
-    published to the private `canix-fleet` cache.
-- **murph (Arc A770, i915).** nixpkgs has no XPU torch. `nix/torch-xpu-bin.nix` packages the official
-  pytorch.org `torch-2.14.1+xpu` cp314 wheels and the Intel oneAPI runtime wheels they link against.
-  - It follows nixpkgs' own torch-bin pattern: `fetchurl` with sha256 pins plus `autoPatchelfHook`.
-  - `nix/comfyui-xpu.nix` swaps that torch into nixpkgs' `comfyui` through `pythonPackagesExtensions`.
-  - The GPU user-mode driver (intel-compute-runtime, Level Zero) comes from the host's
-    `hardware.graphics` and is never bundled.
+nixpkgs' `comfyui` (0.37.0) is used as-is. Only its torch stack is replaced, through
+`pythonPackagesExtensions`, so nixpkgs' own `torch.override` still composes.
+
+**The replacement torch** is the official pytorch.org wheel set for each vendor:
+
+| Variant | Host | Wheels |
+|---|---|---|
+| `rocm` | atlas, 7900 XTX | `torch 2.14.1+rocm7.2`, `torchvision 0.29.1+rocm7.2`, `torchaudio 2.11.0+rocm7.2`, `triton-rocm 3.8.0` |
+| `xpu` | murph, Arc A770 | `torch 2.14.1+xpu`, `torchvision 0.29.1+xpu`, `torchaudio 2.11.0+xpu`, `triton-xpu 3.8.0`, plus the Intel oneAPI runtime wheels |
+
+**Packaging**
+- `nix/torch-bin.nix` installs the wheels and patches their ELF files with `autoPatchelfHook`, the
+  same approach as nixpkgs' CUDA `torch-bin`. Nothing is compiled.
+- The ROCm wheels bundle their own HIP/ROCm user space and use the host's `amdgpu` kernel driver.
+- The XPU wheels use the host's intel-compute-runtime and Level Zero through `hardware.graphics`.
+
+**Pinning**
+- Wheel versions, files and sha256 hashes are pinned by **nix-cache-pin wheel-pins** in
+  `nix/wheels/{rocm,xpu}.json`, generated from the `cache-pin.wheel-pins` declarations in
+  `flake.nix`.
+- Pure-Python dependencies come from nixpkgs (`providedExternally`).
+- The `cache-pin-wheel-pins-<name>-coverage` flake checks fail when a sidecar drifts from its
+  declaration.
+
+**Upgrading**
+1. `nix run .#cache-pin-wheel-pins -- --check-current` shows newer versions, including any blocked
+   by a constraint.
+2. Edit the constraints, then run `nix run .#cache-pin-wheel-pins` and `nix flake check`.
 
 **Rejected:**
-- **A pinned Ubuntu + pip OCI image.** It duplicated what nixpkgs already packages and needed a
-  second userspace.
-- **Building torch from source for XPU with `intel-llvm`.** Too much work for a single package.
-- **Using the unpinned main nixpkgs `pkgsRocm`.** At that revision every ROCm dependency would also be
-  rebuilt.
+- **Compiling `pkgsRocm` torch from source.** It is not cached at any revision that ships
+  ComfyUI ≥ 0.37, it takes hours, and it does not fit the nix-daemon's 16 GiB build cap. Compiling
+  torch is not allowed here.
+- **A pip/Ubuntu OCI image.** It means a second userspace and duplicates nixpkgs.
+- **Building XPU torch with `intel-llvm`.**
+- **A hand-maintained wheel list.** It has no upgrade path or drift check.
 
 ## Decision 3 — exposure to wg-home, on demand where useful
 

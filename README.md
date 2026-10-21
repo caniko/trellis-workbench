@@ -9,8 +9,8 @@ A local image-to-3D workflow, from a reference image to an asset in an existing 
 5. Fit or attach it.
 
 - **Generation** uses ComfyUI's native TRELLIS.2 nodes, which are pure PyTorch with no custom
-  extensions. They run on AMD ROCm (nixpkgs `pkgsRocm.comfyui`) or Intel Arc XPU (`comfyui-xpu`
-  from this flake).
+  extensions. They run on official prebuilt PyTorch wheels, for AMD ROCm (`comfyui-rocm`) or
+  Intel Arc XPU (`comfyui-xpu`), both from this flake.
 - **The bridge CLI** (`trellis-workbench`) submits, follows, reconciles and cancels jobs over
   ComfyUI's documented HTTP and WebSocket routes, then publishes checksummed bundles atomically.
 - **The Blender add-on** imports bundles without touching existing data. It provides landmark

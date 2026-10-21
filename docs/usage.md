@@ -2,11 +2,20 @@
 
 ## Backend (GPU host, NixOS)
 
-The backend is ComfyUI 0.37 with its native TRELLIS.2 nodes. In canix it is configured as
-`canix.trellisWorkbench` (`root/modules/services/trellis_workbench.nix`). Elsewhere, run any
-ComfyUI ≥ 0.37 with a GPU torch:
-- `pkgsRocm.comfyui` for AMD;
-- this flake's `packages.x86_64-linux.comfyui-xpu` for Intel Arc.
+The backend is ComfyUI 0.37 with its native TRELLIS.2 nodes, running on official prebuilt
+PyTorch wheels; torch is never compiled. In canix it is configured as `canix.trellisWorkbench`
+(`root/modules/services/trellis_workbench.nix`). Elsewhere, use this flake's packages:
+- `packages.x86_64-linux.comfyui-rocm` for AMD;
+- `packages.x86_64-linux.comfyui-xpu` for Intel Arc.
+
+**Upgrading torch.** Wheel versions and hashes are pinned with nix-cache-pin wheel-pins:
+
+```sh
+nix run .#cache-pin-wheel-pins -- --check-current   # pinned / allowed / newest per package
+# edit the constraints in flake.nix (cache-pin.wheel-pins.{rocm,xpu}.packages), then:
+nix run .#cache-pin-wheel-pins                      # rewrite nix/wheels/{rocm,xpu}.json
+nix flake check                                     # coverage checks + tests
+```
 
 **One-time, online model bootstrap.** The fetch units are manual and pinned: repository, revision,
 size and sha256.
