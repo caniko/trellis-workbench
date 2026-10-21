@@ -48,6 +48,7 @@ class FakeComfy:
         self.device = {"name": "fake-gpu", "type": "cuda", "vram_total": 24 * 2**30, "vram_free": 22 * 2**30}
         self.object_info = schema_for(workflow.load_preset().api)
         self.drop_prompt_response = False
+        self.cached_vram = 0  # models ComfyUI keeps loaded until /free
         self.loop: asyncio.AbstractEventLoop | None = None
 
     # executor controls (called from the test thread)
@@ -169,6 +170,8 @@ class FakeComfy:
         @r.post("/free")
         async def free(_req):
             self.frees += 1
+            self.device["vram_free"] += self.cached_vram
+            self.cached_vram = 0
             return web.Response()
 
         @r.get("/history/{pid}")

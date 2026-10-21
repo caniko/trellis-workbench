@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import random
+import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -146,9 +147,15 @@ class Runner:
                 'profile cannot generate. Set license_profile = "mixed" after accepting its terms.'
             )
 
-        stats = self.client.system_stats()
-        dev = accelerator_or_fail(stats)
         need = int(profile["min_free_vram_gib"] * GIB)
+        dev = accelerator_or_fail(self.client.system_stats())
+        if dev.get("vram_free", 0) < need and self._free_if_idle():
+            # ComfyUI's own cached models (e.g. after a cancel) are not another application's memory.
+            for _ in range(10):  # /free applies asynchronously (about 1 s on a 7900 XTX)
+                time.sleep(0.3)
+                dev = accelerator_or_fail(self.client.system_stats())
+                if dev.get("vram_free", 0) >= need:
+                    break
         if dev.get("vram_free", 0) < need:
             raise JobFailed(
                 f"deferred: backend has {dev.get('vram_free', 0) / GIB:.1f} GiB free VRAM, profile "
@@ -285,6 +292,7 @@ class Runner:
         outcome, messages = history_outcome(entry)
         if outcome == "interrupted":
             self.journal.set_state(job.job_id, JobState.cancelled, "interrupted")
+            self._free_if_idle()
             return self.journal.get(job.job_id)
         if outcome != "success":
             detail = next((json.dumps(m["data"])[:1500] for m in messages if m["type"] == "execution_error"), outcome)
@@ -324,13 +332,15 @@ class Runner:
         self.journal.event(job.job_id, "oom-retry", retry.job_id)
         return self.follow(retry.job_id)
 
-    def _free_if_idle(self) -> None:
+    def _free_if_idle(self) -> bool:
         try:
             q = self.client.queue()
             if not q.get("queue_running") and not q.get("queue_pending"):
                 self.client.free()
+                return True
         except ComfyError:
             pass
+        return False
 
     # --- bundle -----------------------------------------------------------------------------
 
@@ -470,6 +480,7 @@ class Runner:
             outcome, _ = history_outcome(entry)
             if outcome == "interrupted":
                 self.journal.set_state(job_id, JobState.cancelled, "interrupted while running")
+                self._free_if_idle()
                 return "interrupted"
             return f"finished before the interrupt took effect ({outcome})"
         if where == "history":

@@ -62,7 +62,7 @@ full = [
   "TW Save AO",
 ]
 
-# min_free_vram_gib values are initial estimates until benchmarks replace them (docs/compatibility.md).
+# min_free_vram_gib: low-memory is measured, standard and high are still estimates (docs/compatibility.md).
 [profiles.standard]
 diffusion_model = "trellis_2_bf16.safetensors"
 precision = "bf16"

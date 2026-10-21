@@ -69,11 +69,16 @@ def validate_geometry(
     if degenerate:
         out.append(_finding("degenerate-faces", "warning", degenerate, f"{name}: zero-area triangles"))
 
-    dup = len(faces) - len(np.unique(np.sort(faces, axis=1), axis=0))
+    # Topology is judged on position-welded vertices: glTF splits vertices along UV seams and
+    # normal creases, which would otherwise count every UV chart as a separate open part.
+    _, weld = np.unique(vertices, axis=0, return_inverse=True)
+    welded = weld.reshape(-1)[faces]
+
+    dup = len(welded) - len(np.unique(np.sort(welded, axis=1), axis=0))
     if dup:
         out.append(_finding("duplicate-faces", "warning", dup, f"{name}: faces sharing all three vertices"))
 
-    edges = np.sort(faces[:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2), axis=1)
+    edges = np.sort(welded[:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2), axis=1)
     uniq, counts = np.unique(edges, axis=0, return_counts=True)
     boundary = uniq[counts == 1]
     nonmanifold = int((counts > 2).sum())
@@ -91,7 +96,7 @@ def validate_geometry(
     if nonmanifold:
         out.append(_finding("non-manifold-edges", "warning", nonmanifold, f"{name}: edges shared by >2 faces"))
 
-    used = np.unique(faces)
+    used = np.unique(welded)
     graph = coo_matrix((np.ones(len(edges)), (edges[:, 0], edges[:, 1])), shape=(nv, nv))
     _n, labels = connected_components(graph, directed=False)
     components = len(np.unique(labels[used])) if len(used) else 0

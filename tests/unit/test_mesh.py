@@ -54,3 +54,11 @@ def test_glb_report(tmp_path):
     r = validate_glb(p, Category.accessory)
     assert r["result"] in {"ok", "warning"} and r["stats"]["faces"] == 12
     assert "no-uv" not in {f["code"] for f in r["findings"]}
+
+
+def test_uv_seam_splits_are_not_reported_as_openings():
+    """A closed box with per-face (seam-split) vertices is still one closed part."""
+    box = trimesh.creation.box()
+    box.unmerge_vertices()  # every face gets its own vertices, as in a UV-seamed glTF
+    c = codes(validate_geometry(box.vertices, box.faces, np.zeros((len(box.vertices), 2)), Category.accessory, "box"))
+    assert "open-boundary" not in c and "disconnected-components" not in c and "non-manifold-edges" not in c

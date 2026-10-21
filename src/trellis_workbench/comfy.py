@@ -200,7 +200,10 @@ def is_oom(messages: list[dict]) -> bool:
         if m["type"] != "execution_error":
             continue
         text = " ".join(str(m["data"].get(k, "")) for k in ("exception_type", "exception_message")).lower()
-        if "outofmemory" in text.replace(" ", "") or "out of memory" in text:
+        # CUDA/HIP/XPU OOM, plus BLAS/solver workspace allocation failures (seen on ROCm as
+        # HIPBLAS_STATUS_ALLOC_FAILED when cached models leave too little VRAM).
+        markers = ("outofmemory", "out of memory", "alloc_failed", "erroroutofmemory")
+        if any(mk in text.replace(" ", "") or mk in text for mk in markers):
             return True
     return False
 

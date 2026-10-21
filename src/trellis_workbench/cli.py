@@ -202,6 +202,8 @@ def cmd_status(cfg, args) -> int:
     elif args.reconcile:
         where = ComfyClient(job.backend).locate(job.prompt_id)
         print(f"backend reports prompt {job.prompt_id}: {where}", file=sys.stderr)
+        if where in {"history", "absent"}:  # settle without blocking: follow returns at once here
+            job = Runner(cfg, job.backend, _progress).follow(job.job_id)
     _print(
         {
             "job": job.__dict__

@@ -150,6 +150,13 @@ def test_vram_pressure_defers_without_submitting(cfg, fake_comfy, reference):
     assert fake_comfy.posts == []
 
 
+def test_vram_held_by_comfyui_cache_is_freed_not_deferred(cfg, fake_comfy, reference):
+    fake_comfy.device["vram_free"] = 2 * 2**30
+    fake_comfy.cached_vram = 20 * 2**30
+    _runner, job = submit(cfg, reference)
+    assert fake_comfy.frees == 1 and len(fake_comfy.posts) == 1, job.detail
+
+
 def test_cpu_backend_is_refused(cfg, fake_comfy, reference):
     fake_comfy.device["type"] = "cpu"
     with pytest.raises(JobFailed, match="no GPU"):
@@ -201,3 +208,33 @@ def test_strict_foss_profile_refuses_generation(cfg, fake_comfy, reference):
     with pytest.raises(JobFailed, match="DINOv3"):
         Runner(strict, None).submit(Request(image=reference, mode=Category.accessory), workflow.load_preset())
     assert fake_comfy.posts == []
+
+
+def test_blas_allocation_failure_counts_as_oom():
+    from trellis_workbench.comfy import is_oom
+
+    msg = [
+        {
+            "type": "execution_error",
+            "data": {
+                "exception_type": "RuntimeError",
+                "exception_message": "CUDA error: HIPBLAS_STATUS_ALLOC_FAILED when calling `hipblasDgetrfBatched(...)`",
+            },
+        }
+    ]
+    assert is_oom(msg)
+    assert not is_oom(
+        [{"type": "execution_error", "data": {"exception_type": "ValueError", "exception_message": "bad"}}]
+    )
+
+
+def test_status_reconcile_marks_prompt_lost_after_backend_restart(cfg, fake_comfy, reference):
+    import argparse
+
+    from trellis_workbench.cli import cmd_status
+    from trellis_workbench.journal import Journal
+
+    _runner, job = submit(cfg, reference)
+    fake_comfy.pending.clear()  # the backend restarted: no queue entry, no history
+    cmd_status(cfg, argparse.Namespace(job_id=job.job_id, watch=False, reconcile=True, limit=20))
+    assert Journal(cfg.journal).get(job.job_id).state == JobState.lost
