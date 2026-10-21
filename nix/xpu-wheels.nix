@@ -58,6 +58,11 @@
     sha256 = "e877ad3720e8d6dd45d71cf05dd9d65e66f5a38c0900089f1542569e43512e78";
   }
   {
+    name = "oneccl_devel-2022.1.1-py2.py3-none-manylinux_2_28_x86_64.whl";
+    url = "https://files.pythonhosted.org/packages/d5/c1/a62b38dec8add789fae282fcdaaebbb1bf55db32922fcd2fb42f8523cdc1/oneccl_devel-2022.1.1-py2.py3-none-manylinux_2_28_x86_64.whl";
+    sha256 = "a088ba67a3610bdb621b82335953ceb4bda65b81146a306a1bb3c64e47d47735";
+  }
+  {
     name = "onemkl_license-2026.1.0-py2.py3-none-manylinux_2_28_x86_64.whl";
     url = "https://files.pythonhosted.org/packages/e3/ef/8437c187319e779a76f4dbb468a1863d729297d79a1b5f44b10a58c96ec2/onemkl_license-2026.1.0-py2.py3-none-manylinux_2_28_x86_64.whl";
     sha256 = "39fd829648af92c9e03c22ba228f07174d829aaa2fe3c5f6cd7073b8eb8a9805";
