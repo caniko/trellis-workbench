@@ -1,0 +1,39 @@
+[project]
+name = "trellis-workbench"
+version = "0.1.0"
+description = "Local TRELLIS.2 (ComfyUI) to Blender asset workbench: bridge CLI, bundles and add-on helper"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+requires-python = ">=3.12"
+dependencies = [
+  "pydantic>=2",
+  "websockets>=13",
+  "numpy",
+  "trimesh",
+  "pillow",
+  "scipy",
+]
+
+[project.scripts]
+trellis-workbench = "trellis_workbench.cli:main"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+trellis_workbench = ["workflows/*.json", "workflows/*.toml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint.per-file-ignores]
+# Blender's class-attribute idioms (bl_options = {...}, property annotations).
+"blender_addon/**" = ["RUF012"]

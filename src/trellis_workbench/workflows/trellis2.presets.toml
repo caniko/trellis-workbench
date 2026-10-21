@@ -1,0 +1,117 @@
+# Named bindings for trellis2.api.json (ComfyUI native TRELLIS.2 nodes, ComfyUI 0.37.0).
+# Bindings address inputs by node title and input name. `slot` marks a link binding whose
+# value is the title of the source node.
+
+[workflow]
+api = "trellis2.api.json"
+
+[bindings]
+image = { node = "TW Reference", input = "image" }
+mask_file = { node = "TW Mask File", input = "image" }
+mask_source = { node = "TW Crop", input = "masks", slot = 0 }
+crop_size = [
+  { node = "TW Crop", input = "width" },
+  { node = "TW Crop", input = "height" },
+]
+seed = [
+  { node = "TW Structure Sampler", input = "seed" },
+  { node = "TW Shape Sampler", input = "seed" },
+  { node = "TW Upsample Sampler", input = "seed" },
+  { node = "TW Texture Sampler", input = "seed" },
+]
+diffusion_model = { node = "TW TRELLIS.2 Model", input = "unet_name" }
+upsample_resolution = { node = "TW Upsample Stage", input = "target_resolution" }
+remesh_resolution = { node = "TW Remesh", input = "resolution" }
+# Garments skip the UDF remesh: it would wrap thin cloth into a two-layer shell.
+mesh_source = [
+  { node = "TW Decimate", input = "mesh", slot = 0 },
+  { node = "TW Bake Normal", input = "high_poly", slot = 0 },
+  { node = "TW Bake AO", input = "high_poly", slot = 0 },
+]
+face_budget = { node = "TW Decimate", input = "target_face_count" }
+texture_size = [
+  { node = "TW Unwrap", input = "resolution" },
+  { node = "TW Bake Material", input = "texture_size" },
+  { node = "TW Bake Normal", input = "resolution" },
+]
+ao_resolution = { node = "TW Bake AO", input = "resolution" }
+
+[outputs]
+working-glb = "TW Save GLB"
+source-glb = "TW Save Source"
+processed-input = "TW Save Processed"
+texture = [
+  "TW Save Base Color",
+  "TW Save Metallic",
+  "TW Save Roughness",
+  "TW Save Normal",
+  "TW Save AO",
+]
+
+[stages]
+# Shape-only: decoded high-detail geometry, no texturing (backend proof and fast previews).
+shape = ["TW Save Source", "TW Save Processed"]
+full = [
+  "TW Save GLB",
+  "TW Save Source",
+  "TW Save Processed",
+  "TW Save Base Color",
+  "TW Save Metallic",
+  "TW Save Roughness",
+  "TW Save Normal",
+  "TW Save AO",
+]
+
+# min_free_vram_gib values are initial estimates until benchmarks replace them (docs/compatibility.md).
+[profiles.standard]
+diffusion_model = "trellis_2_bf16.safetensors"
+precision = "bf16"
+resolution = 1024
+upsample_resolution = 1024
+remesh_resolution = 512
+texture_size = 2048
+ao_resolution = 1024
+face_budget = 200000
+min_free_vram_gib = 14.0
+
+[profiles.low-memory]
+diffusion_model = "trellis_2_int8_convrot.safetensors"
+precision = "int8-convrot"
+resolution = 1024
+upsample_resolution = 1024
+remesh_resolution = 384
+texture_size = 1024
+ao_resolution = 512
+face_budget = 100000
+min_free_vram_gib = 8.0
+
+[profiles.high]
+diffusion_model = "trellis_2_bf16.safetensors"
+precision = "bf16"
+resolution = 1536
+upsample_resolution = 1536
+remesh_resolution = 768
+texture_size = 4096
+ao_resolution = 1024
+face_budget = 500000
+min_free_vram_gib = 18.0
+
+[modes.accessory]
+intended_use = "rigid accessory or static prop; attach to an object or bone"
+mesh_source = "TW Remesh"
+crop_size = 1024
+
+[modes.garment]
+intended_use = "garment design reference / working mesh; refit or retopologize before deformation use"
+mesh_source = "TW Decode Shape"
+crop_size = 1024
+
+[modes.human]
+intended_use = "standalone human character (static / look-development until rigged and checked)"
+mesh_source = "TW Remesh"
+crop_size = 1024
+
+[modes.animal]
+intended_use = "standalone animal (static / look-development until rigged and checked)"
+mesh_source = "TW Remesh"
+crop_size = 1024

@@ -1,0 +1,13 @@
+schema_version = "1.0.0"
+
+id = "trellis_workbench"
+version = "0.1.0"
+name = "TRELLIS Workbench"
+tagline = "Import generated 3D assets safely and fit or attach them to existing rigs"
+maintainer = "caniko"
+type = "add-on"
+blender_version_min = "4.2.0"
+license = ["SPDX:GPL-3.0-or-later"]
+
+[permissions]
+files = "Reads generated asset bundles and starts the trellis-workbench helper process"
