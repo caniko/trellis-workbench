@@ -6,13 +6,48 @@ provider = "actions"
 platform = "github"
 runtime = "nix"
 runner = "ubuntu-24.04"
+# ci.yaml: fast evaluation of every output (both pinned torch variants included).
+components = ["flake-evaluation"]
+# nix-builds.yaml: every flake check, grouped, with per-check evidence.
 nix_builds = [
-  ".#packages.x86_64-linux.trellis-workbench",
-  ".#packages.x86_64-linux.trellis-workbench-blender-addon",
+  ".#checks.x86_64-linux.formatting",
+  ".#checks.x86_64-linux.lint",
+  ".#checks.x86_64-linux.torch-wheels-are-pinned-variants",
+  ".#checks.x86_64-linux.cache-pin-wheel-pins-rocm-coverage",
+  ".#checks.x86_64-linux.cache-pin-wheel-pins-xpu-coverage",
+  ".#checks.x86_64-linux.trellis-workbench",
   ".#checks.x86_64-linux.blender",
+  ".#packages.x86_64-linux.trellis-workbench-blender-addon",
+]
+
+[ci.nix_build]
+capture_results = true
+# Fails the run if any checks.x86_64-linux.* has no owner in nix_builds.
+check_systems = ["x86_64-linux"]
+timeout_minutes = 60
+max_jobs = 1
+cores = 2
+
+[ci.nix_build.groups]
+static = [
+  ".#checks.x86_64-linux.formatting",
+  ".#checks.x86_64-linux.lint",
+  ".#checks.x86_64-linux.torch-wheels-are-pinned-variants",
+  ".#checks.x86_64-linux.cache-pin-wheel-pins-rocm-coverage",
+  ".#checks.x86_64-linux.cache-pin-wheel-pins-xpu-coverage",
+]
+python = [".#checks.x86_64-linux.trellis-workbench"]
+blender = [
+  ".#checks.x86_64-linux.blender",
+  ".#packages.x86_64-linux.trellis-workbench-blender-addon",
 ]
 
 [prebuild]
+# Published to Attic; the matrix above qualifies everything else.
+nix_builds = [
+  ".#packages.x86_64-linux.trellis-workbench",
+  ".#packages.x86_64-linux.trellis-workbench-blender-addon",
+]
 publish_attic = true
 attic_app = ".#push-flake-inputs"
 system_runners = { x86_64-linux = "ubuntu-24.04" }

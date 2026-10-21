@@ -34,5 +34,5 @@ jobs:
           git config --global --add url.https://github.com/.insteadOf ssh://git@github.com/
           git config --global --add url.https://github.com/.insteadOf git@github.com:
 
-      - name: Check flake
-        run: nix flake check
+      - name: Check flake evaluation
+        run: nix flake check --no-build
