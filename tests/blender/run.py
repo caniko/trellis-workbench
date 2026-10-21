@@ -22,7 +22,7 @@ from mathutils import Matrix, Vector
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "blender_addon"))
-from trellis_workbench import core  # noqa: E402
+from trellis_workbench import core
 
 ARGS = sys.argv[sys.argv.index("--") + 1 :]
 FIXTURES = json.loads(Path(ARGS[0]).read_text())
@@ -266,8 +266,8 @@ def failed_import_rolls_back():
     state = ui_state()
     try:
         core.import_bundle(bpy.context, FIXTURES["broken"])
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as exc:  # noqa: BLE001
+        print(f"broken GLB refused: {exc}")
     else:
         raise AssertionError("broken GLB imported")
     assert {n: len(getattr(bpy.data, n)) for n in core.ID_COLLECTIONS} == counts
@@ -301,7 +301,7 @@ def new_revision_never_overwrites_edits():
 
 @test
 def rigid_accessory_follows_bone_without_weights():
-    body, arm, _ = build_scene()
+    _body, arm, _ = build_scene()
     before = fingerprint()
     coll = core.import_bundle(bpy.context, FIXTURES["plate"])
     plate = mesh_objects(coll)[0]

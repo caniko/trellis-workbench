@@ -15,7 +15,7 @@ import bpy
 from mathutils import Vector
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "blender_addon"))
-from trellis_workbench import core  # noqa: E402
+from trellis_workbench import core
 
 args = sys.argv[sys.argv.index("--") + 1 :]
 bundle, out = args[0], Path(args[1])

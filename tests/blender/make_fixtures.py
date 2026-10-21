@@ -14,11 +14,11 @@ import numpy as np
 import trimesh
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from assets import textured_box_glb  # noqa: E402
+from assets import textured_box_glb
 
-from trellis_workbench import bundle as b  # noqa: E402
-from trellis_workbench.mesh import validate_glb  # noqa: E402
-from trellis_workbench.schema import (  # noqa: E402
+from trellis_workbench import bundle as b
+from trellis_workbench.mesh import validate_glb
+from trellis_workbench.schema import (
     Category,
     GenerationSettings,
     Licensing,

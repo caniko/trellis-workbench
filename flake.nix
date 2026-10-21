@@ -128,6 +128,11 @@
         checks = {
           inherit (pkgs) trellis-workbench;
           formatting = treefmt.config.build.check self;
+          lint = pkgs.runCommand "trellis-workbench-lint" {nativeBuildInputs = [pkgs.ruff];} ''
+            cd ${lib.cleanSource self}
+            ruff check --no-cache src tests blender_addon blender_tools
+            touch $out
+          '';
           blender = pkgs.callPackage ./nix/blender-tests.nix {src = self;};
           # The prebuilt torch packages must really be the pinned GPU builds.
           torch-wheels-are-pinned-variants = let
