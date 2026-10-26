@@ -2,20 +2,16 @@
   description = "Local TRELLIS.2 (ComfyUI) to Blender asset workbench";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-parts = {
       url = "github:hercules-ci/flake-parts";
       inputs.nixpkgs-lib.follows = "nixpkgs";
     };
     treefmt-nix = {
-      url = "github:numtide/treefmt-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
+      follows = "harbor-rs/treefmt-nix";
     };
     # Only for lib.mkAtticPush (CI publication to the canix Attic cache).
     harbor-rs = {
-      url = "github:caniko/harbor-rs";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.treefmt-nix.follows = "treefmt-nix";
+      url = "git+https://github.com/caniko/harbor-rs.git?ref=trunk";
     };
     # Wheel pins: prebuilt PyTorch ROCm/XPU wheels pinned to exact files and hashes.
     nix-cache-pin = {
@@ -23,6 +19,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-parts.follows = "flake-parts";
     };
+    nixpkgs.follows = "harbor-rs/nixpkgs";
   };
 
   outputs = inputs @ {
