@@ -12,8 +12,8 @@
   - normal and AO baked from the remeshed high-poly.
   - Nothing else is fabricated.
 - Quality and memory figures in `compatibility.md` are measured only where stated. Only the
-  low-memory `min_free_vram_gib` threshold has been exercised under VRAM pressure; nothing has run
-  on the Arc A770 yet.
+  low-memory `min_free_vram_gib` threshold has been exercised under VRAM pressure. The Arc A770 has
+  only run low-memory accessory jobs, and one of the three aborted in remesh for an unknown reason.
 - Flat-lay garment references give flat, open shells. Use a worn or mannequin view, or the
   body-derived garment path.
 
