@@ -1,7 +1,7 @@
 # Compatibility and measured results
 
-Everything below was measured on real hardware on 2026-10-21. Rows that were not run say so.
-Measurements are single runs, not averages.
+Everything below was measured on real hardware: atlas on 2026-10-21, the Arc A770 on 2026-11-01.
+Rows that were not run say so. Measurements are single runs, not averages.
 
 ## Tested stack
 
@@ -22,9 +22,6 @@ ComfyUI ran on loopback with `ROCR_VISIBLE_DEVICES=0` and `HSA_OVERRIDE_GFX_VERS
 - `--reserve-vram 3`. Without it, a standard-profile shoe (seed 7) exhausted VRAM during texture
   decoding, and ROCm reported a GPU memory access fault that killed ComfyUI. The client marked
   the job `lost` and submitted nothing twice. With the reserve, the same reference (seed 8) completed.
-
-Intel Arc A770 (murph, `comfyui-xpu`): the package builds and imports, but **no generation has
-been run yet**.
 
 ## Generation runs (atlas, full stage unless noted)
 
@@ -48,6 +45,22 @@ Cold and warm timing differ little. The client calls `/free` after every job, so
 reloads the models, from the page cache once they have been read once. The first full axe took
 87 s and the repeat 82 s.
 
+## Generation runs (murph, Arc A770, full stage)
+
+`comfyui-xpu` on the 16 GiB A770: ComfyUI 0.37.0, PyTorch 2.14.1+xpu, Python 3.14.7. Only
+`low-memory` accessory jobs have run here, all from one reference. `standard` and `high` have not
+run, and peak VRAM was not sampled.
+
+| Reference | Backend | Mode | Profile | Seed | Result | Wall time |
+|---|---|---|---|---|---|---|
+| barrel | test ComfyUI | accessory | low-memory | 1010229816 | **backend aborted** in remesh | |
+| barrel | test ComfyUI, scatter-tracing hook loaded | accessory | low-memory | 1606065079 | published | 1045 s |
+| barrel | production `comfyui.service` | accessory | low-memory | 650542645 | published | 788 s |
+
+The abort was `ScatterGatherKernels.cpp:233 Assertion idx_dim >= 0 && idx_dim < index_size_` in
+`remesh_narrow_band_dc`. The cause is unknown. It did not recur in the two later runs, and a
+standalone remesh of a sphere at resolutions 128 to 768 did not reproduce it.
+
 ## Mesh statistics (exported `model.glb`, current validator)
 
 | Asset | Vertices | Faces | Parts | Open boundary loops | Non-manifold edges | Flipped UV faces |
@@ -61,6 +74,8 @@ reloads the models, from the page cache once they have been read once. The first
 | dog | 167,896 | 194,949 | 94 | 29 | 1,288 | 24,569 |
 | shirt (garment) | 198,046 | 187,926 | 14 | 13,118 | 3,719 | 17,220 |
 | axe under VRAM pressure, low-memory | 72,834 | 97,247 | 43 | 4 | 393 | 22,256 |
+| barrel, A770 test ComfyUI | 66,050 | 99,996 | 11 | 0 | 0 | 47,923 |
+| barrel, A770 production | 68,024 | 99,998 | 8 | 0 | 0 | 28,956 |
 
 All bundles validate as `warning`, never `error`, and face counts stay within the profile
 budgets.
@@ -72,6 +87,8 @@ Visual check: Cycles previews were rendered through the add-on's import path
 - **Shirt** came out as a flat, speckled shell, because the flat-lay reference gives a flat-lay
   mesh. The garment path skips the watertight remesh, which explains the 13k open loops. It is
   not wearable as-is. Use the body-derived garment path, or a worn/mannequin reference.
+- **Barrel (A770, production)** matches its reference. This one was imported with Blender's glTF
+  importer, not through the add-on.
 - **Flipped UV faces:** TRELLIS's unwrapper mirrors whole charts, and textures still render
   correctly, so this finding is informational.
 
