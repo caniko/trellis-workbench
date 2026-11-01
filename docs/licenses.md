@@ -29,7 +29,7 @@ No third-party source code is copied into this repository.
 | ROCm 7.2 user space bundled in the torch ROCm wheel | as shipped by pytorch.org (HIP runtime, rocBLAS, hipBLASLt, MIOpen, …) | MIT / NCSA / Apache-2.0 (per component) | Redistributed by PyTorch inside the wheel. The host's `amdgpu` kernel driver is used. |
 | PyTorch XPU wheels | torch 2.14.1+xpu, torchvision 0.29.1+xpu, torchaudio 2.11.0+xpu, triton-xpu 3.8.0 (sha256 pinned in `nix/wheels/xpu.json`) | BSD-3-Clause; MIT (triton) | Official pytorch.org binaries. |
 | Intel oneAPI runtime wheels | 2026.1.0: sycl-rt, cmplr-lib-rt/ur, opencl-rt, openmp, mkl, onemkl-sycl-*, tbb, umf, tcmlib, pti, dpcpp-cpp-rt, impi-rt, oneccl | Intel Simplified Software License (ISSL) | **Unfree but redistributable.** Allowed by a narrow `allowUnfreePredicate` (only `torch-xpu-bin`). |
-| intel-compute-runtime, intel-graphics-compiler | nixpkgs, pinned by the flake and shipped with `comfyui-xpu` | MIT | User-mode GPU driver, selected by the wrapper via `ZE_ENABLE_ALT_DRIVERS`. The Level Zero loader still comes from the host. |
+| intel-compute-runtime, intel-graphics-compiler | nixpkgs, pinned by the flake and shipped with `comfyui-xpu` | MIT | User-mode GPU driver, selected by the wrapper via `ZE_ENABLE_ALT_DRIVERS` (Level Zero) and `OCL_ICD_FILENAMES` (OpenCL). The Level Zero and OpenCL loaders still come from the host. |
 | Blender | 5.2 (nixpkgs) | GPL-2.0-or-later (GPL-3.0 as a whole) | The client application. |
 | trimesh, numpy, scipy, pydantic, websockets, Pillow | nixpkgs | MIT, BSD-3, BSD-3, MIT, BSD-3, MIT-CMU | Client dependencies. |
 | aiohttp, pytest | nixpkgs | Apache-2.0, MIT | Tests only. |

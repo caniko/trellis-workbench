@@ -37,7 +37,11 @@ variant: _final: prev:
     # but this process loads the flake nixpkgs' older libstdc++ first, so the host driver fails to
     # load, the loader finds 0 drivers and torch.xpu.device_count() is 0. Ship the driver from
     # this nixpkgs instead; the host's libze_loader is still used, only the driver is swapped.
+    # oneDNN's SYCL path (SDPA, convolutions) also needs the device through OpenCL, and the ICD
+    # loader reads the host's ICD, whose libigdrcl has the same ABI mismatch ("OpenCL device not
+    # found", "could not create a primitive"). Pin the ICD library of the same driver.
     env = {
+      OCL_ICD_FILENAMES = "${prev.intel-compute-runtime}/lib/intel-opencl/libigdrcl.so";
       ZE_ENABLE_ALT_DRIVERS = "${prev.intel-compute-runtime}/lib/libze_intel_gpu.so.1";
       # ponytail: the driver finds libigc via this path until the nixpkgs pin has abf51db76b
       # (NixOS/nixpkgs#575155, RUNPATH to intel-graphics-compiler); drop it then.
@@ -50,6 +54,7 @@ variant: _final: prev:
       + ''
         wrapProgram $out/bin/comfyui \
           --set-default ZE_ENABLE_ALT_DRIVERS ${env.ZE_ENABLE_ALT_DRIVERS} \
+          --set-default OCL_ICD_FILENAMES ${env.OCL_ICD_FILENAMES} \
           --prefix LD_LIBRARY_PATH : ${env.LD_LIBRARY_PATH}
       '';
     # Read by the runtime doctor so it sees the same driver environment as the service.

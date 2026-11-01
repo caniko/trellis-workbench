@@ -140,12 +140,15 @@
             assert xpu.passthru.variant == "xpu" && lib.hasSuffix "+xpu" xpu.version;
             assert rocmPkgs.comfyui.passthru.python.pkgs.torch.passthru.variant == "rocm";
               pkgs.emptyFile;
-          # The XPU wrapper must pin the flake's own Level Zero driver (host driver ABI mismatch
-          # leaves torch with 0 devices).
+          # The XPU wrapper must pin the flake's own Level Zero driver and OpenCL ICD (host
+          # driver ABI mismatch leaves torch with 0 devices / no oneDNN primitives).
           comfyui-xpu-pins-level-zero-driver = pkgs.runCommand "comfyui-xpu-pins-level-zero-driver" {} ''
             drv=${xpuPkgs.comfyui.passthru.xpuDriverEnv.ZE_ENABLE_ALT_DRIVERS}
+            icd=${xpuPkgs.comfyui.passthru.xpuDriverEnv.OCL_ICD_FILENAMES}
             test -e "$drv"
+            test -e "$icd"
             grep -aF "$drv" ${xpuPkgs.comfyui}/bin/comfyui | grep -aq ZE_ENABLE_ALT_DRIVERS
+            grep -aF "$icd" ${xpuPkgs.comfyui}/bin/comfyui | grep -aq OCL_ICD_FILENAMES
             touch $out
           '';
         };

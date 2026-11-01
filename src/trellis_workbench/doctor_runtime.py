@@ -85,12 +85,12 @@ def main() -> int:
         return {"max_abs_err": err, "device": str(dev)}
 
     def sparse_ops() -> dict:
-        # The gather/scatter-add and SDPA primitives native TRELLIS.2 builds its sparse conv and attention on.
+        # DINOv3-shaped SDPA (needs the OpenCL ICD for oneDNN on XPU) and the gather/scatter-add primitives native TRELLIS.2 builds its sparse conv and attention on.
         idx = torch.randint(0, 4096, (65536,), generator=torch.Generator().manual_seed(2))
         val = torch.randn(65536, 32, generator=torch.Generator().manual_seed(3))
         ref = torch.zeros(4096, 32).index_add_(0, idx, val)
         got = torch.zeros(4096, 32, device=dev).index_add_(0, idx.to(dev), val.to(dev)).cpu()
-        q = torch.randn(1, 8, 512, 64, device=dev, dtype=torch.bfloat16)
+        q = torch.randn(1, 16, 1025, 64, device=dev, dtype=torch.bfloat16)
         out = torch.nn.functional.scaled_dot_product_attention(q, q, q)
         torch.accelerator.synchronize()
         return {"index_add_err": (got - ref).abs().max().item(), "sdpa_finite": bool(torch.isfinite(out).all().item())}

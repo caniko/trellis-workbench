@@ -14,5 +14,6 @@ pkgs.runCommand "trellis-workbench-runtime-doctor" {
     --set TRELLIS_WORKBENCH_VENDOR ${vendor}${pkgs.lib.optionalString (vendor == "xpu") ''
     \
       --set-default ZE_ENABLE_ALT_DRIVERS ${comfyui.passthru.xpuDriverEnv.ZE_ENABLE_ALT_DRIVERS} \
+      --set-default OCL_ICD_FILENAMES ${comfyui.passthru.xpuDriverEnv.OCL_ICD_FILENAMES} \
       --prefix LD_LIBRARY_PATH : ${comfyui.passthru.xpuDriverEnv.LD_LIBRARY_PATH}''}
 ''
