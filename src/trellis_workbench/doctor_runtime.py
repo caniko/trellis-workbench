@@ -57,6 +57,11 @@ def main() -> int:
             info |= {"device": props.name, "arch": getattr(props, "gcnArchName", None)}
             free, total = torch.cuda.mem_get_info(0)
         elif vendor == "xpu":
+            if torch.xpu.device_count() == 0:
+                raise RuntimeError(
+                    "torch.xpu sees 0 devices: no Level Zero driver loaded "
+                    f"(ZE_ENABLE_ALT_DRIVERS={os.environ.get('ZE_ENABLE_ALT_DRIVERS')!r})"
+                )
             if not torch.xpu.is_available():
                 raise RuntimeError(f"XPU torch not usable: {info}")
             props = torch.xpu.get_device_properties(0)

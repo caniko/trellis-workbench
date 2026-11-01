@@ -62,7 +62,9 @@ nixpkgs' `comfyui` (0.37.0) is used as-is. Only its torch stack is replaced, thr
 - `nix/torch-bin.nix` installs the wheels and patches their ELF files with `autoPatchelfHook`, the
   same approach as nixpkgs' CUDA `torch-bin`. Nothing is compiled.
 - The ROCm wheels bundle their own HIP/ROCm user space and use the host's `amdgpu` kernel driver.
-- The XPU wheels use the host's intel-compute-runtime and Level Zero through `hardware.graphics`.
+- The XPU wheels use the Level Zero loader and kernel driver of the host (`hardware.graphics`), but
+  the `comfyui-xpu` wrapper pins `ZE_ENABLE_ALT_DRIVERS` to the package's own intel-compute-runtime:
+  the host's driver can need a newer libstdc++ than the env loads, which leaves torch with 0 devices.
 
 **Pinning**
 - Wheel versions, files and sha256 hashes are pinned by **nix-cache-pin wheel-pins** in

@@ -140,6 +140,14 @@
             assert xpu.passthru.variant == "xpu" && lib.hasSuffix "+xpu" xpu.version;
             assert rocmPkgs.comfyui.passthru.python.pkgs.torch.passthru.variant == "rocm";
               pkgs.emptyFile;
+          # The XPU wrapper must pin the flake's own Level Zero driver (host driver ABI mismatch
+          # leaves torch with 0 devices).
+          comfyui-xpu-pins-level-zero-driver = pkgs.runCommand "comfyui-xpu-pins-level-zero-driver" {} ''
+            drv=${xpuPkgs.comfyui.passthru.xpuDriverEnv.ZE_ENABLE_ALT_DRIVERS}
+            test -e "$drv"
+            grep -aF "$drv" ${xpuPkgs.comfyui}/bin/comfyui | grep -aq ZE_ENABLE_ALT_DRIVERS
+            touch $out
+          '';
         };
 
         devShells.default = pkgs.mkShell {
