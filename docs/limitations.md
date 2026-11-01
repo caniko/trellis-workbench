@@ -11,9 +11,10 @@
   - base color with alpha, metallic and roughness from the voxel decoder;
   - normal and AO baked from the remeshed high-poly.
   - Nothing else is fabricated.
-- Quality and memory figures in `compatibility.md` are measured only where stated. Only the
-  low-memory `min_free_vram_gib` threshold has been exercised under VRAM pressure. The Arc A770 has
-  only run low-memory accessory jobs, and one of the three aborted in remesh for an unknown reason.
+- Quality and memory figures in `compatibility.md` are measured only where stated. The low-memory
+  `min_free_vram_gib` threshold held in its one run under VRAM pressure, but the standard threshold
+  let through a job that then ran out of memory. The Arc A770 has only run low-memory accessory
+  jobs. Since the OpenCL ICD pin, one of three aborted in remesh for an unknown reason.
 - Flat-lay garment references give flat, open shells. Use a worn or mannequin view, or the
   body-derived garment path.
 

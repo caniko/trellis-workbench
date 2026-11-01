@@ -1,7 +1,7 @@
 # Compatibility and measured results
 
-Everything below was measured on real hardware: atlas on 2026-10-21, the Arc A770 on 2026-11-01.
-Rows that were not run say so. Measurements are single runs, not averages.
+Everything below was measured on real hardware: atlas on 2026-10-21 (its barrel rows on 2026-11-01),
+the Arc A770 on 2026-11-01. Rows that were not run say so. Measurements are single runs, not averages.
 
 ## Tested stack
 
@@ -40,6 +40,8 @@ and offloads models opportunistically, so these peaks are upper bounds, not requ
 | clothing_shirt_flat | garment | standard | 13 | published | 122 s | 21.3 GiB |
 | viking_wolf_rune_axe (repeat) | accessory | standard | 14 | published | 82 s | 17.7 GiB |
 | viking_wolf_rune_axe, with 12 GiB held by another process | accessory | low-memory | 33 | published | 105 s | 23.5 GiB (incl. the 12 GiB) |
+| barrel, with llama-swap holding about 9 GB | accessory | standard | 1406856676 | **out of memory** in shape decode, retried automatically | 326 s | not sampled |
+| barrel (the automatic retry) | accessory | low-memory | 1406856676 | published | 509 s | not sampled |
 
 Cold and warm timing differ little. The client calls `/free` after every job, so every job
 reloads the models, from the page cache once they have been read once. The first full axe took
@@ -47,12 +49,15 @@ reloads the models, from the page cache once they have been read once. The first
 
 ## Generation runs (murph, Arc A770, full stage)
 
-`comfyui-xpu` on the 16 GiB A770: ComfyUI 0.37.0, PyTorch 2.14.1+xpu, Python 3.14.7. Only
+`comfyui-xpu` on murph: 15.5 GiB RAM, Linux 7.2.11-cachyos-lto (read after the runs), and an A770
+that ComfyUI reports as 15.1 GiB. ComfyUI 0.37.0, PyTorch 2.14.1+xpu, Python 3.14.7. Only
 `low-memory` accessory jobs have run here, all from one reference. `standard` and `high` have not
-run, and peak VRAM was not sampled.
+run, and peak VRAM was not sampled. Wall time here, and on atlas's barrel rows, runs from job
+creation to publish or failure.
 
 | Reference | Backend | Mode | Profile | Seed | Result | Wall time |
 |---|---|---|---|---|---|---|
+| barrel | production `comfyui.service`, before the OpenCL ICD pin | accessory | low-memory | 1123286515 | **failed** in conditioning (`could not create a primitive`), fixed by the pin | 8 s |
 | barrel | test ComfyUI | accessory | low-memory | 1010229816 | **backend aborted** in remesh | |
 | barrel | test ComfyUI, scatter-tracing hook loaded | accessory | low-memory | 1606065079 | published | 1045 s |
 | barrel | production `comfyui.service` | accessory | low-memory | 650542645 | published | 788 s |
@@ -74,6 +79,7 @@ standalone remesh of a sphere at resolutions 128 to 768 did not reproduce it.
 | dog | 167,896 | 194,949 | 94 | 29 | 1,288 | 24,569 |
 | shirt (garment) | 198,046 | 187,926 | 14 | 13,118 | 3,719 | 17,220 |
 | axe under VRAM pressure, low-memory | 72,834 | 97,247 | 43 | 4 | 393 | 22,256 |
+| barrel, atlas retry, low-memory | 67,448 | 100,000 | 15 | 1 | 0 | 26,495 |
 | barrel, A770 test ComfyUI | 66,050 | 99,996 | 11 | 0 | 0 | 47,923 |
 | barrel, A770 production | 68,024 | 99,998 | 8 | 0 | 0 | 28,956 |
 
@@ -103,13 +109,14 @@ Visual check: Cycles previews were rendered through the add-on's import path
 | VRAM pressure: another process holding 12 GiB, standard profile | deferred before submission (`10.7 GiB free, needs 14.0`), exit code 3, nothing queued |
 | VRAM held only by ComfyUI's own cached models | freed with `/free` while idle, then submitted (the first live run exposed this; fixed and unit-tested) |
 | Same pressure, low-memory profile | published (row above) |
-| OOM → low-memory retry | **not reproduced on hardware**. On ROCm, VRAM exhaustion surfaced as a fatal memory access fault, not a catchable allocation error, so the retry path is covered only by the fake-backend unit test. |
+| OOM → low-memory retry | Reproduced on atlas on 2026-11-01: `torch.OutOfMemoryError` in shape decode, retried once at low-memory, published. VRAM exhaustion can also surface as a fatal memory access fault (the shoe run above), which kills ComfyUI and is not retried. |
 
 ## Profile thresholds
 
 `min_free_vram_gib` is checked against ComfyUI's reported free VRAM before submission.
 
 - **low-memory (8 GiB):** completed with 10.7 GiB available.
-- **standard (14 GiB):** has only been run with about 21 GiB available. It stays at
-  14 GiB until a run under pressure supports a lower value.
+- **standard (14 GiB):** completed with about 21 GiB available. With about 14.8 GiB free, a job
+  passed the check and then ran out of memory in shape decode, so 14 GiB is too low when other
+  processes hold VRAM.
 - **high:** has not been run.
