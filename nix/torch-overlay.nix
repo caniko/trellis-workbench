@@ -31,3 +31,28 @@ variant: _final: prev:
       '';
   });
 }
+// prev.lib.optionalAttrs (variant == "xpu") {
+  comfyui = prev.comfyui.overrideAttrs (old: let
+    # The host's Level Zero driver is built against the host's newer libstdc++ (GLIBCXX_3.4.35),
+    # but this process loads the flake nixpkgs' older libstdc++ first, so the host driver fails to
+    # load, the loader finds 0 drivers and torch.xpu.device_count() is 0. Ship the driver from
+    # this nixpkgs instead; the host's libze_loader is still used, only the driver is swapped.
+    env = {
+      ZE_ENABLE_ALT_DRIVERS = "${prev.intel-compute-runtime}/lib/libze_intel_gpu.so.1";
+      # ponytail: the driver finds libigc via this path until the nixpkgs pin has abf51db76b
+      # (NixOS/nixpkgs#575155, RUNPATH to intel-graphics-compiler); drop it then.
+      LD_LIBRARY_PATH = "${prev.intel-graphics-compiler}/lib";
+    };
+  in {
+    # --set-default: an operator can still point ZE_ENABLE_ALT_DRIVERS elsewhere.
+    postFixup =
+      (old.postFixup or "")
+      + ''
+        wrapProgram $out/bin/comfyui \
+          --set-default ZE_ENABLE_ALT_DRIVERS ${env.ZE_ENABLE_ALT_DRIVERS} \
+          --prefix LD_LIBRARY_PATH : ${env.LD_LIBRARY_PATH}
+      '';
+    # Read by the runtime doctor so it sees the same driver environment as the service.
+    passthru = (old.passthru or {}) // {xpuDriverEnv = env;};
+  });
+}

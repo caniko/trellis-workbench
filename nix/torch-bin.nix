@@ -7,8 +7,10 @@
 #
 # - rocm: the wheels bundle their own HIP/ROCm user space; the host's amdgpu kernel driver
 #   (/dev/kfd, render node) is used.
-# - xpu: the GPU user-mode driver (intel-compute-runtime) comes from the host's
-#   hardware.graphics via /run/opengl-driver/lib.
+# - xpu: the GPU user-mode driver (intel-compute-runtime) is NOT taken from the host: the
+#   comfyui wrapper (torch-overlay.nix) points ZE_ENABLE_ALT_DRIVERS at this nixpkgs' copy,
+#   because the host driver needs a newer libstdc++ than this env loads. The host's Level Zero
+#   loader and kernel driver are still used (/run/opengl-driver/lib).
 {
   lib,
   variant,
