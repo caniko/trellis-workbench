@@ -37,7 +37,6 @@ static = [
   ".#checks.x86_64-linux.cache-pin-wheel-pins-rocm-coverage",
   ".#checks.x86_64-linux.cache-pin-wheel-pins-xpu-coverage",
   ".#checks.x86_64-linux.comfyui-xpu-pins-level-zero-driver",
-  ".#checks.x86_64-linux.comfyui-xpu-pins-level-zero-driver",
 ]
 python = [".#checks.x86_64-linux.trellis-workbench"]
 blender = [
