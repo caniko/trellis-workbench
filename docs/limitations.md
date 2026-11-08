@@ -43,6 +43,7 @@
 - `/free` unloads all models in ComfyUI after a job, but only when its queue is idle. It also affects
   other users' cached models.
 - The VRAM preflight sees the backend's view (`/system_stats`). Other GPU users (llama-swap,
-  Blender, games) are never stopped. Jobs are deferred instead.
+  Blender, games) are never stopped. Jobs below the free-VRAM threshold are deferred instead;
+  passing the check does not guarantee enough VRAM.
 - A job lost to a backend restart before it ran is marked `lost`. In-memory sampler state is never
   recovered. Rerun deliberately.

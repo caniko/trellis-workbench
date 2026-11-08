@@ -26,7 +26,8 @@ ComfyUI ran on loopback with `ROCR_VISIBLE_DEVICES=0` and `HSA_OVERRIDE_GFX_VERS
 ## Generation runs (atlas, full stage unless noted)
 
 "Peak VRAM" is device-wide usage sampled once per second, including the desktop. ComfyUI caches
-and offloads models opportunistically, so these peaks are upper bounds, not requirements.
+and offloads models opportunistically, so these peaks are upper bounds, not requirements. Wall time
+on the barrel rows runs from job creation to publish or failure.
 
 | Reference | Mode | Profile | Seed | Result | Wall time | Peak VRAM |
 |---|---|---|---|---|---|---|
@@ -41,7 +42,7 @@ and offloads models opportunistically, so these peaks are upper bounds, not requ
 | viking_wolf_rune_axe (repeat) | accessory | standard | 14 | published | 82 s | 17.7 GiB |
 | viking_wolf_rune_axe, with 12 GiB held by another process | accessory | low-memory | 33 | published | 105 s | 23.5 GiB (incl. the 12 GiB) |
 | barrel, with llama-swap holding about 9 GB | accessory | standard | 1406856676 | **out of memory** in shape decode, retried automatically | 326 s | not sampled |
-| barrel (the automatic retry) | accessory | low-memory | 1406856676 | published | 509 s | not sampled |
+| barrel (the automatic retry, its own job) | accessory | low-memory | 1406856676 | published | 509 s | not sampled |
 
 Cold and warm timing differ little. The client calls `/free` after every job, so every job
 reloads the models, from the page cache once they have been read once. The first full axe took
@@ -52,8 +53,7 @@ reloads the models, from the page cache once they have been read once. The first
 `comfyui-xpu` on murph: 15.5 GiB RAM, Linux 7.2.11-cachyos-lto (read after the runs), and an A770
 that ComfyUI reports as 15.1 GiB. ComfyUI 0.37.0, PyTorch 2.14.1+xpu, Python 3.14.7. Only
 `low-memory` accessory jobs have run here, all from one reference. `standard` and `high` have not
-run, and peak VRAM was not sampled. Wall time here, and on atlas's barrel rows, runs from job
-creation to publish or failure.
+run, and peak VRAM was not sampled. Wall time runs from job creation to publish or failure.
 
 | Reference | Backend | Mode | Profile | Seed | Result | Wall time |
 |---|---|---|---|---|---|---|
@@ -115,7 +115,8 @@ Visual check: Cycles previews were rendered through the add-on's import path
 
 `min_free_vram_gib` is checked against ComfyUI's reported free VRAM before submission.
 
-- **low-memory (8 GiB):** completed with 10.7 GiB available.
+- **low-memory (8 GiB):** completed with 10.7 GiB available, and again in the barrel retry under
+  llama-swap pressure.
 - **standard (14 GiB):** completed with about 21 GiB available. With about 14.8 GiB free, a job
   passed the check and then ran out of memory in shape decode, so 14 GiB is too low when other
   processes hold VRAM.
