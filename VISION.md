@@ -38,8 +38,9 @@ result to the user's existing rig and landmarks instead of assuming a template.
   schemas, never pickled objects. The SQLite journal records jobs while ComfyUI
   remains the only queue.
 - **Measure on real hardware.** `docs/compatibility.md` records per-reference
-  runs with wall time and peak VRAM on the RX 7900 XTX and Arc A770, and says
-  which rows were not run. Limitations are documented, not smoothed over.
+  runs with wall time and, where sampled, peak VRAM on the RX 7900 XTX and Arc
+  A770, and says which rows were not run. Limitations are documented, not
+  smoothed over.
 - **Checks need no models and no GPU.** Unit and contract tests use a fake
   ComfyUI, plus headless Blender acceptance tests; real-hardware results are
   recorded separately.
@@ -84,7 +85,7 @@ checks and an Attic prebuild on trunk.
 ## Place in the fleet
 
 Canix consumes the repository as the `trellis-workbench` flake input and runs
-`canix.trellisWorkbench` on atlas (ROCm, on-demand ComfyUI behind a wg-home
+`canix.trellisWorkbench` on atlas (ROCm, always-on ComfyUI behind a wg-home
 socket) and murph (XPU, on-demand with a 20-minute idle exit); the
 `trellis-3d-asset` skill routes local GLB generation through those backends,
 and the Paperclip graphics company owns the repository's work.
