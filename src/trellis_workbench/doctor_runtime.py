@@ -66,10 +66,7 @@ def main() -> int:
             free, total = torch.cuda.mem_get_info(0)
         elif vendor == "cuda":
             if not info["cuda"] or not torch.cuda.is_available():
-                raise RuntimeError(
-                    "CUDA torch sees no device: driver missing from /run/opengl-driver/lib? "
-                    f"{info}"
-                )
+                raise RuntimeError(f"CUDA torch sees no device: driver missing from /run/opengl-driver/lib? {info}")
             props = torch.cuda.get_device_properties(0)
             info |= {
                 "device": props.name,
