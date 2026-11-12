@@ -1,7 +1,7 @@
 """On-host GPU doctor. Runs with the ComfyUI service's own Python/torch; stdlib + torch only.
 
 Invoked through the `trellis-workbench-runtime-doctor` wrapper, which sets TRELLIS_WORKBENCH_VENDOR
-(rocm|xpu). It deliberately does not import ComfyUI (GPL-3.0) modules; node availability is
+(rocm|xpu|cuda). It deliberately does not import ComfyUI (GPL-3.0) modules; node availability is
 checked over HTTP by `trellis-workbench doctor`, and real rasterization/texturing by `bench`.
 
 Prints one JSON object and exits non-zero if any required check fails. It never falls back
@@ -34,8 +34,12 @@ def main() -> int:
     vendor = os.environ.get("TRELLIS_WORKBENCH_VENDOR", "unknown")
 
     def device_nodes() -> dict:
-        nodes = ["/dev/kfd"] if vendor == "rocm" else []
-        nodes += sorted(f"/dev/dri/{n}" for n in os.listdir("/dev/dri") if n.startswith("renderD"))
+        if vendor == "cuda":
+            # The NVIDIA kernel modules; /dev/dri is not needed.
+            nodes = [n for n in ("/dev/nvidiactl", "/dev/nvidia0") if os.path.exists(n)]
+        else:
+            nodes = ["/dev/kfd"] if vendor == "rocm" else []
+            nodes += sorted(f"/dev/dri/{n}" for n in os.listdir("/dev/dri") if n.startswith("renderD"))
         if not nodes or (vendor == "rocm" and not os.path.exists("/dev/kfd")):
             raise RuntimeError(f"required device nodes missing: {nodes}")
         unusable = [n for n in nodes if not os.access(n, os.R_OK | os.W_OK)]
@@ -48,13 +52,30 @@ def main() -> int:
     import torch
 
     def backend() -> dict:
-        info = {"torch": torch.__version__, "hip": getattr(torch.version, "hip", None)}
+        info = {
+            "torch": torch.__version__,
+            "hip": getattr(torch.version, "hip", None),
+            "cuda": getattr(torch.version, "cuda", None),
+        }
         if vendor == "rocm":
             # ROCm builds expose the device through the torch.cuda API names.
             if not info["hip"] or not torch.cuda.is_available():
                 raise RuntimeError(f"ROCm torch not usable: {info}")
             props = torch.cuda.get_device_properties(0)
             info |= {"device": props.name, "arch": getattr(props, "gcnArchName", None)}
+            free, total = torch.cuda.mem_get_info(0)
+        elif vendor == "cuda":
+            if not info["cuda"] or not torch.cuda.is_available():
+                raise RuntimeError(
+                    "CUDA torch sees no device: driver missing from /run/opengl-driver/lib? "
+                    f"{info}"
+                )
+            props = torch.cuda.get_device_properties(0)
+            info |= {
+                "device": props.name,
+                "arch": f"sm_{props.major}{props.minor}",
+                "cudnn": torch.backends.cudnn.version(),
+            }
             free, total = torch.cuda.mem_get_info(0)
         elif vendor == "xpu":
             if torch.xpu.device_count() == 0:
@@ -73,7 +94,7 @@ def main() -> int:
         return info
 
     info = _check(results, "torch-backend", backend)
-    dev = torch.device("cuda" if vendor == "rocm" else "xpu") if info else None
+    dev = torch.device("cuda" if vendor in ("rocm", "cuda") else "xpu") if info else None
 
     def matmul() -> dict:
         a = torch.randn(1024, 1024, generator=torch.Generator().manual_seed(0))

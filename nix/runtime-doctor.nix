@@ -3,7 +3,7 @@
 {
   pkgs,
   comfyui,
-  vendor, # "rocm" | "xpu"
+  vendor, # "rocm" | "xpu" | "cuda"
 }:
 pkgs.runCommand "trellis-workbench-runtime-doctor" {
   nativeBuildInputs = [pkgs.makeBinaryWrapper];
