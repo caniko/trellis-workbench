@@ -131,8 +131,15 @@ The browser and the CLI run the same API JSON. ComfyUI's frontend loads API-form
   journal *before* submitting.
 - A lost response or a dropped websocket is therefore always reconciled through `/history/{id}` and
   `/queue`, never by resubmitting.
-- An identical request (same backend, inputs, settings and seed) that is still in flight reuses the
-  journal entry.
+- The request fingerprint is the sha256 of the resolved *content*: the bound workflow, the profile's
+  canonical JSON (never its name), the revisions and sha256 of the checkpoints those bindings load
+  (`src/trellis_workbench/model_lock.json`, the runtime copy of the `inventory.json` model rows), the
+  effective OOM-fallback policy, the backend's ComfyUI and pytorch versions, the input sha256s, the
+  parameters and the seed. Changing a model revision, a profile value or the fallback policy
+  therefore misses the cache. A checkpoint name that is not in the lock is an error, not an omission.
+- An identical fingerprint that is still in flight is reconciled. A published one is reused only
+  after its bundle re-verifies against its manifest, so a corrupted or missing output is recomputed
+  rather than served.
 
 **Completion**
 - Completion means `execution_success` and a history entry. A node `executed` event is not completion.
@@ -148,6 +155,11 @@ The browser and the CLI run the same API JSON. ComfyUI's frontend loads API-form
   Otherwise the job is *deferred* and nothing is submitted. Other applications are never evicted.
 - On out-of-memory, the job retries once with the explicit `low-memory` profile (int8_convrot,
   1024/1024 textures, a smaller face budget). That retry is recorded. A second OOM fails.
+- `--no-oom-fallback`, `no_oom_fallback = true`, or `TRELLIS_WORKBENCH_NO_OOM_FALLBACK=1` fails an
+  OOM as a typed `oom:` failure with no retry, so a deployment never trades quality for memory.
+  The switch is authoritative at OOM time, not just at submission: a job reused in flight or
+  resumed from the journal after the switch was set still fails typed instead of falling back,
+  whatever its saved request says.
 - After a job, `/free` unloads models, but only when the queue is idle.
 
 ## Decision 6 — bundles
@@ -191,6 +203,21 @@ The browser and the CLI run the same API JSON. ComfyUI's frontend loads API-form
 **Diagnostics**
 - Penetration is counted advisorily across temporary inspection poses. The original pose and action
   are restored exactly.
+
+## Known follow-ups
+
+- **Backend model identity is assumed, not proven.** The fingerprint carries the revisions and
+  sha256s from `model_lock.json`, but ComfyUI exposes only filenames (`/object_info` combo choices,
+  `GET /models/{folder}`); `/view_metadata/{folder}` returns a safetensors `__metadata__` block, not
+  a content digest. So a backend that serves a different file under the same name is undetectable.
+  What holds today is the deployment itself: `root/modules/services/trellis_workbench.nix` in canix
+  pins one HF revision and one sha256 per file (today matching `docs/inventory.json` and the runtime
+  lock). Unifying the two sources (one pinned table that both the Nix fetch and the client read) is
+  the follow-up. `tests/unit/test_model_lock.py` keeps the inventory and the runtime lock equal.
+- **The backend runtime config is not hashed.** The fingerprint covers ComfyUI and pytorch versions,
+  not the backend's launch flags, custom node set or model-path config. TRELLIS is experimental and
+  off the production path, so a backend config change can reuse a cache entry until the versions
+  move. Hashing that config belongs to the same follow-up as model identity.
 
 ## Not built (YAGNI, documented)
 

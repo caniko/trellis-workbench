@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "note": "Runtime copy of the model rows in docs/inventory.json; tests/unit/test_model_lock.py fails when they drift.",
+  "models": [
+    {
+      "file": "diffusion_models/trellis_2_bf16.safetensors",
+      "revision": "430a9d09b2416687018c8fe8edced2ad4858a439",
+      "sha256": "bf8ebe29f2d73722ca8a17b7aa65ef07650eb26d04799ae600482058f96921b5"
+    },
+    {
+      "file": "diffusion_models/trellis_2_int8_convrot.safetensors",
+      "revision": "430a9d09b2416687018c8fe8edced2ad4858a439",
+      "sha256": "d01952ad137213f6a868f86b6b877026276f84af5eec23069217475a0bad3a31"
+    },
+    {
+      "file": "vae/trellis_2_shape_vae_bf16.safetensors",
+      "revision": "430a9d09b2416687018c8fe8edced2ad4858a439",
+      "sha256": "de0cb4949a76c59ee5c091a995a69bcc8c51d5aeda939f0c641a50d2a72341f4"
+    },
+    {
+      "file": "vae/trellis_2_texture_vae_bf16.safetensors",
+      "revision": "430a9d09b2416687018c8fe8edced2ad4858a439",
+      "sha256": "714e5ebf094a610e12a8e3b5175c18a62f37f6ea4218acb6073644456b73ab0e"
+    },
+    {
+      "file": "clip_vision/dino_v3_vit_l.safetensors",
+      "revision": "430a9d09b2416687018c8fe8edced2ad4858a439",
+      "sha256": "5cb785e458de7c460579082418af81f5c62380c181599344bdc60898c63468ee"
+    },
+    {
+      "file": "background_removal/birefnet.safetensors",
+      "revision": "25511f8787e51912e1480706b4e47b8f467fbf72",
+      "sha256": "9ab37426bf4de0567af6b5d21b16151357149139362e6e8992021b8ce356a154"
+    }
+  ]
+}

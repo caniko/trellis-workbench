@@ -109,7 +109,7 @@ Visual check: Cycles previews were rendered through the add-on's import path
 | VRAM pressure: another process holding 12 GiB, standard profile | deferred before submission (`10.7 GiB free, needs 14.0`), exit code 3, nothing queued |
 | VRAM held only by ComfyUI's own cached models | freed with `/free` while idle, then submitted (the first live run exposed this; fixed and unit-tested) |
 | Same pressure, low-memory profile | published (row above) |
-| OOM → low-memory retry | Reproduced on atlas on 2026-11-01: `torch.OutOfMemoryError` in shape decode, retried once at low-memory, published. VRAM exhaustion can also surface as a fatal memory access fault (the shoe run above), which kills ComfyUI and is not retried. |
+| OOM → low-memory retry | Reproduced on atlas on 2026-11-01: `torch.OutOfMemoryError` in shape decode, retried once at low-memory, published. The retry is off with `--no-oom-fallback` or `TRELLIS_WORKBENCH_NO_OOM_FALLBACK=1`, which fails as a typed `oom:` (exit code 4). VRAM exhaustion can also surface as a fatal memory access fault (the shoe run above), which kills ComfyUI and is not retried. |
 
 ## Profile thresholds
 

@@ -180,7 +180,9 @@ def cmd_submit(cfg, args) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 3 if str(exc).startswith("deferred:") else 1
     _print({"job_id": job.job_id, "state": job.state.value, "detail": job.detail, "asset_id": job.asset_id})
-    return 0 if job.state in {JobState.published, JobState.submitted, JobState.running} else 1
+    if job.state in {JobState.published, JobState.submitted, JobState.running}:
+        return 0
+    return 4 if job.detail.startswith("oom:") else 1  # 4: typed OOM, no lower-quality retry
 
 
 def cmd_status(cfg, args) -> int:

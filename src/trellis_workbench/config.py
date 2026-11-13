@@ -6,6 +6,7 @@ Read from $XDG_CONFIG_HOME/trellis-workbench/config.toml (written by the Home Ma
     asset_root = "~/3d/trellis-assets"
     allowed_roots = ["~/3d"]
     license_profile = "mixed"
+    no_oom_fallback = false          # or set TRELLIS_WORKBENCH_NO_OOM_FALLBACK=1 for the whole process
     [backends]
     atlas = "http://10.123.0.5:8190"
     murph = "http://10.123.0.6:8190"
@@ -23,6 +24,18 @@ def _xdg(var: str, default: str) -> Path:
     return Path(os.environ.get(var) or Path.home() / default)
 
 
+# A deployment (the ledger adapters) makes OOM a typed failure instead of a quality change.
+NO_OOM_FALLBACK_ENV = "TRELLIS_WORKBENCH_NO_OOM_FALLBACK"
+
+
+def _flag(value: object) -> bool:
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def no_oom_fallback_forced() -> bool:
+    return _flag(os.environ.get(NO_OOM_FALLBACK_ENV, ""))
+
+
 @dataclass(frozen=True)
 class Config:
     backends: dict[str, str] = field(default_factory=lambda: {"local": "http://127.0.0.1:8188"})
@@ -33,6 +46,8 @@ class Config:
         default_factory=lambda: _xdg("XDG_STATE_HOME", ".local/state") / "trellis-workbench/journal.sqlite"
     )
     license_profile: str = "strict-foss"
+    # True: an OOM fails as `oom` instead of retrying the low-memory profile.
+    no_oom_fallback: bool = field(default_factory=no_oom_fallback_forced)
 
     def backend_url(self, name_or_url: str | None) -> str:
         key = name_or_url or self.default_backend
@@ -59,4 +74,5 @@ def load(path: Path | None = None) -> Config:
         allowed_roots=tuple(Path(p).expanduser() for p in raw.get("allowed_roots", [])),
         journal=Path(raw["journal"]).expanduser() if "journal" in raw else base.journal,
         license_profile=raw.get("license_profile", base.license_profile),
+        no_oom_fallback=_flag(raw.get("no_oom_fallback", False)) or no_oom_fallback_forced(),
     )

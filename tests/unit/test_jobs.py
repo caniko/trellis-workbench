@@ -5,11 +5,13 @@ from __future__ import annotations
 import socket
 import threading
 import time
+from dataclasses import replace
 
 import pytest
 
 from trellis_workbench import bundle as bundlelib
-from trellis_workbench import workflow
+from trellis_workbench import model_lock, workflow
+from trellis_workbench.config import Config as ClientConfig
 from trellis_workbench.jobs import JobFailed, Request, Runner
 from trellis_workbench.schema import Category, JobState
 
@@ -41,6 +43,23 @@ def submit(cfg, reference, **kw):
     runner = Runner(cfg, None)
     req = Request(image=reference, mode=kw.pop("mode", Category.accessory), seed=7, **kw)
     return runner, runner.submit(req, workflow.load_preset())
+
+
+def run_to(cfg, fake_comfy, job):
+    """Run an already submitted job to success and return the finished journal row."""
+    runner = Runner(cfg, job.backend)
+    t, out = follow_in_thread(runner, job.job_id)
+    wait_for(lambda: job.client_id in fake_comfy.ws)
+    fake_comfy.call(fake_comfy.start_next)
+    fake_comfy.call(fake_comfy.finish, "success")
+    t.join(20)
+    assert out["job"].state == JobState.published, out["job"].detail
+    return out["job"]
+
+
+def publish(cfg, reference, fake_comfy):
+    _runner, job = submit(cfg, reference)
+    return run_to(cfg, fake_comfy, job)
 
 
 def test_success_publishes_validated_bundle(cfg, fake_comfy, reference):
@@ -141,6 +160,110 @@ def test_oom_retries_once_with_low_memory(cfg, fake_comfy, reference):
     assert len(fake_comfy.posts) == 2
     events = [k for _a, k, _d in runner.journal.events(job.job_id)]
     assert "oom" in events and "oom-retry" in events
+
+
+def test_changed_model_revision_misses_the_cache(cfg, fake_comfy, reference, monkeypatch):
+    first = publish(cfg, reference, fake_comfy)
+    _runner, same = submit(cfg, reference)
+    assert same.job_id == first.job_id and len(fake_comfy.posts) == 1  # identical content: reconciled
+
+    name = "trellis_2_bf16.safetensors"
+    monkeypatch.setitem(model_lock.LOCK, name, {**model_lock.LOCK[name], "revision": "0" * 40})
+    _runner, again = submit(cfg, reference)
+    assert again.job_id != first.job_id
+    assert again.request["models"][name]["revision"] == "0" * 40
+    assert len(fake_comfy.posts) == 2
+
+
+def test_changed_profile_value_misses_the_cache(cfg, fake_comfy, reference):
+    first = publish(cfg, reference, fake_comfy)
+    preset = workflow.load_preset()
+    preset.profiles["standard"]["texture_size"] = 1024  # same profile name, different content
+    job = Runner(cfg, None).submit(Request(image=reference, mode=Category.accessory, seed=7), preset)
+    assert job.job_id != first.job_id
+    assert job.request["profile_sha256"] != first.request["profile_sha256"]
+    assert len(fake_comfy.posts) == 2
+
+
+@pytest.mark.parametrize("damage", ["corrupt", "missing"])
+def test_damaged_bundle_is_recomputed_not_served(cfg, fake_comfy, reference, damage):
+    first = publish(cfg, reference, fake_comfy)
+    target = cfg.asset_root / first.asset_id / f"r{first.revision:04d}" / "working" / "model.glb"
+    if damage == "missing":
+        target.unlink()
+    else:
+        target.write_bytes(b"corrupted")
+    _runner, again = submit(cfg, reference)
+    assert again.job_id != first.job_id
+    done = run_to(cfg, fake_comfy, again)
+    assert len(fake_comfy.posts) == 2
+    bundlelib.verify(cfg.asset_root / done.asset_id / f"r{done.revision:04d}")  # a fresh, intact bundle
+
+
+def test_oom_fallback_switch_fails_typed_without_a_lower_quality_retry(cfg, fake_comfy, reference, monkeypatch):
+    monkeypatch.setenv("TRELLIS_WORKBENCH_NO_OOM_FALLBACK", "1")
+    forced = replace(cfg, no_oom_fallback=ClientConfig().no_oom_fallback)
+    assert forced.no_oom_fallback is True
+    runner, job = submit(forced, reference)
+    assert job.request["allow_oom_fallback"] is False
+    t, out = follow_in_thread(runner, job.job_id)
+    wait_for(lambda: job.client_id in fake_comfy.ws)
+    fake_comfy.call(fake_comfy.start_next)
+    fake_comfy.call(fake_comfy.finish, "oom")
+    t.join(20)
+    assert out["job"].state == JobState.failed
+    assert out["job"].detail.startswith("oom:")
+    assert len(fake_comfy.posts) == 1  # never retried with another texture size or model
+    events = [k for _a, k, _d in runner.journal.events(job.job_id)]
+    assert "oom" in events and "oom-retry" not in events
+
+
+def test_oom_switch_overrides_a_reused_jobs_saved_fallback(cfg, fake_comfy, reference, monkeypatch):
+    """A job saved with allow_oom_fallback=True cannot ask for a fallback once the switch is set."""
+    monkeypatch.delenv("TRELLIS_WORKBENCH_NO_OOM_FALLBACK", raising=False)
+    plain = replace(cfg, no_oom_fallback=False)
+    runner, job = submit(plain, reference)
+    assert job.request["allow_oom_fallback"] is True  # recorded while the switch was unset
+    monkeypatch.setenv("TRELLIS_WORKBENCH_NO_OOM_FALLBACK", "1")
+    t, out = follow_in_thread(runner, job.job_id)
+    wait_for(lambda: job.client_id in fake_comfy.ws)
+    fake_comfy.call(fake_comfy.start_next)
+    fake_comfy.call(fake_comfy.finish, "oom")
+    wait_for(lambda: runner.journal.get(job.job_id).state == JobState.failed)
+    assert len(fake_comfy.posts) == 1  # the saved flag never re-enables the low-memory retry
+    t.join(20)
+    assert out["job"].detail.startswith("oom:")
+    events = [k for _a, k, _d in runner.journal.events(job.job_id)]
+    assert "oom" in events and "oom-retry" not in events
+
+
+def test_oom_switch_survives_a_resumed_job(cfg, fake_comfy, reference, monkeypatch):
+    """Resuming from the journal keeps the switch: reconciliation never weakens the policy."""
+    monkeypatch.delenv("TRELLIS_WORKBENCH_NO_OOM_FALLBACK", raising=False)
+    plain = replace(cfg, no_oom_fallback=False)
+    _runner, job = submit(plain, reference)
+    monkeypatch.setenv("TRELLIS_WORKBENCH_NO_OOM_FALLBACK", "1")
+    fake_comfy.call(fake_comfy.start_next)
+    fake_comfy.call(fake_comfy.finish, "oom")
+    # A fresh Runner reads the saved request back from the journal, like `status --reconcile`.
+    resumed = Runner(plain, job.backend)
+    t, out = follow_in_thread(resumed, job.job_id)
+    wait_for(lambda: resumed.journal.get(job.job_id).state == JobState.failed)
+    assert len(fake_comfy.posts) == 1
+    t.join(20)
+    assert out["job"].detail.startswith("oom:")
+    assert resumed.journal.get(job.job_id).state == JobState.failed
+
+
+def test_forced_no_fallback_never_adopts_a_fallback_allowed_job(cfg, fake_comfy, reference, monkeypatch):
+    monkeypatch.delenv("TRELLIS_WORKBENCH_NO_OOM_FALLBACK", raising=False)
+    plain = replace(cfg, no_oom_fallback=False)
+    _runner, job = submit(plain, reference)  # in flight, fallback allowed
+    monkeypatch.setenv("TRELLIS_WORKBENCH_NO_OOM_FALLBACK", "1")
+    _runner2, again = submit(plain, reference)
+    assert again.job_id != job.job_id  # the policy is part of the fingerprint
+    assert again.request["allow_oom_fallback"] is False
+    assert len(fake_comfy.posts) == 2
 
 
 def test_vram_pressure_defers_without_submitting(cfg, fake_comfy, reference):
