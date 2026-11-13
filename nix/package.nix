@@ -26,6 +26,8 @@ buildPythonPackage {
       ../tests/unit
       ../tests/conftest.py
       ../tests/assets.py
+      # The runtime model lock must equal these rows; the guard is only real when they are here.
+      ../docs/inventory.json
     ];
   };
 
@@ -34,6 +36,8 @@ buildPythonPackage {
 
   nativeCheckInputs = [pytestCheckHook aiohttp];
   enabledTestPaths = ["tests/unit"];
+  # Name every test in the build log, so a guard that silently skips is visible.
+  pytestFlags = ["-v"];
   pythonImportsCheck = ["trellis_workbench"];
 
   meta = {

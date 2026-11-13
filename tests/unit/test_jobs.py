@@ -218,6 +218,54 @@ def test_oom_fallback_switch_fails_typed_without_a_lower_quality_retry(cfg, fake
     assert "oom" in events and "oom-retry" not in events
 
 
+def test_oom_switch_overrides_a_reused_jobs_saved_fallback(cfg, fake_comfy, reference, monkeypatch):
+    """A job saved with allow_oom_fallback=True cannot ask for a fallback once the switch is set."""
+    monkeypatch.delenv("TRELLIS_WORKBENCH_NO_OOM_FALLBACK", raising=False)
+    plain = replace(cfg, no_oom_fallback=False)
+    runner, job = submit(plain, reference)
+    assert job.request["allow_oom_fallback"] is True  # recorded while the switch was unset
+    monkeypatch.setenv("TRELLIS_WORKBENCH_NO_OOM_FALLBACK", "1")
+    t, out = follow_in_thread(runner, job.job_id)
+    wait_for(lambda: job.client_id in fake_comfy.ws)
+    fake_comfy.call(fake_comfy.start_next)
+    fake_comfy.call(fake_comfy.finish, "oom")
+    wait_for(lambda: runner.journal.get(job.job_id).state == JobState.failed)
+    assert len(fake_comfy.posts) == 1  # the saved flag never re-enables the low-memory retry
+    t.join(20)
+    assert out["job"].detail.startswith("oom:")
+    events = [k for _a, k, _d in runner.journal.events(job.job_id)]
+    assert "oom" in events and "oom-retry" not in events
+
+
+def test_oom_switch_survives_a_resumed_job(cfg, fake_comfy, reference, monkeypatch):
+    """Resuming from the journal keeps the switch: reconciliation never weakens the policy."""
+    monkeypatch.delenv("TRELLIS_WORKBENCH_NO_OOM_FALLBACK", raising=False)
+    plain = replace(cfg, no_oom_fallback=False)
+    _runner, job = submit(plain, reference)
+    monkeypatch.setenv("TRELLIS_WORKBENCH_NO_OOM_FALLBACK", "1")
+    fake_comfy.call(fake_comfy.start_next)
+    fake_comfy.call(fake_comfy.finish, "oom")
+    # A fresh Runner reads the saved request back from the journal, like `status --reconcile`.
+    resumed = Runner(plain, job.backend)
+    t, out = follow_in_thread(resumed, job.job_id)
+    wait_for(lambda: resumed.journal.get(job.job_id).state == JobState.failed)
+    assert len(fake_comfy.posts) == 1
+    t.join(20)
+    assert out["job"].detail.startswith("oom:")
+    assert resumed.journal.get(job.job_id).state == JobState.failed
+
+
+def test_forced_no_fallback_never_adopts_a_fallback_allowed_job(cfg, fake_comfy, reference, monkeypatch):
+    monkeypatch.delenv("TRELLIS_WORKBENCH_NO_OOM_FALLBACK", raising=False)
+    plain = replace(cfg, no_oom_fallback=False)
+    _runner, job = submit(plain, reference)  # in flight, fallback allowed
+    monkeypatch.setenv("TRELLIS_WORKBENCH_NO_OOM_FALLBACK", "1")
+    _runner2, again = submit(plain, reference)
+    assert again.job_id != job.job_id  # the policy is part of the fingerprint
+    assert again.request["allow_oom_fallback"] is False
+    assert len(fake_comfy.posts) == 2
+
+
 def test_vram_pressure_defers_without_submitting(cfg, fake_comfy, reference):
     fake_comfy.device["vram_free"] = 2 * 2**30
     with pytest.raises(JobFailed, match="deferred"):

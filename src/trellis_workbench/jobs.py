@@ -18,7 +18,7 @@ from pathlib import Path
 from . import bundle as bundlelib
 from . import mesh, model_lock, workflow
 from .comfy import ComfyClient, ComfyError, PromptRejected, history_outcome, is_oom, output_refs
-from .config import Config
+from .config import Config, no_oom_fallback_forced
 from .journal import Job, Journal
 from .schema import (
     Category,
@@ -131,6 +131,10 @@ class Runner:
 
     # --- submission -----------------------------------------------------------------------
 
+    def _fallback_allowed(self) -> bool:
+        """The deployment switch is authoritative: a saved request's flag cannot re-enable it."""
+        return not (self.cfg.no_oom_fallback or no_oom_fallback_forced())
+
     def run(self, req: Request) -> Job:
         preset = workflow.load_preset()
         if req.mode.value not in preset.modes:
@@ -189,7 +193,13 @@ class Runner:
         # it, the revisions of the checkpoints it loads, and the backend runtime.
         graph = workflow.prune(workflow.bind(preset, values), preset.stages[req.stage])
         profile_sha256 = workflow.sha256_json(profile)
-        models = model_lock.used(graph, values.values())
+        try:
+            models = model_lock.used(graph, values.values())
+        except ValueError as exc:  # an unpinned checkpoint fails before anything is queued
+            raise JobFailed(str(exc)) from exc
+        # The fallback policy is part of the request: a forced no-fallback run must never adopt a
+        # job that was allowed to fall back, whatever that job's saved flag says.
+        allow_fallback = req.allow_oom_fallback and self._fallback_allowed()
         request_sha = workflow.sha256_json(
             {
                 "backend": self.url,
@@ -203,6 +213,7 @@ class Runner:
                 "profile": profile_name,
                 "profile_sha256": profile_sha256,
                 "models": models,
+                "allow_oom_fallback": allow_fallback,
                 "workflow_sha256": workflow.sha256_json(graph),
                 "runtime": runtime_versions(stats),
             }
@@ -222,7 +233,7 @@ class Runner:
             "display_name": req.display_name or image.stem,
             "parent_revision": req.parent_revision,
             "reference_rights": req.reference_rights,
-            "allow_oom_fallback": req.allow_oom_fallback and not self.cfg.no_oom_fallback,
+            "allow_oom_fallback": allow_fallback,
             "stage": req.stage,
             "mask_source": mask_source,
         }
@@ -323,7 +334,15 @@ class Runner:
             return self.journal.get(job.job_id)
         if outcome != "success":
             detail = next((json.dumps(m["data"])[:1500] for m in messages if m["type"] == "execution_error"), outcome)
-            if is_oom(messages) and job.request.get("allow_oom_fallback") and job.request["profile"] != "low-memory":
+            # Re-check the switch here, not just at submission: a job saved (or resumed from the
+            # journal) with allow_oom_fallback=True must not fall back under a forced deployment.
+            fallback = (
+                is_oom(messages)
+                and job.request.get("allow_oom_fallback")
+                and self._fallback_allowed()
+                and job.request["profile"] != "low-memory"
+            )
+            if fallback:
                 self.journal.set_state(job.job_id, JobState.failed, detail)
                 self.journal.event(job.job_id, "oom", "out of GPU memory; retrying once with profile low-memory")
                 return self._oom_retry(job)
