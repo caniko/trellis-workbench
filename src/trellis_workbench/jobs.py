@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import bundle as bundlelib
-from . import mesh, workflow
+from . import mesh, model_lock, workflow
 from .comfy import ComfyClient, ComfyError, PromptRejected, history_outcome, is_oom, output_refs
 from .config import Config
 from .journal import Job, Journal
@@ -115,6 +115,11 @@ def accelerator_or_fail(stats: dict) -> dict:
     return dev
 
 
+def runtime_versions(stats: dict) -> dict:
+    sysinfo = stats.get("system", {})
+    return {"comfyui": sysinfo.get("comfyui_version"), "pytorch": sysinfo.get("pytorch_version")}
+
+
 class Runner:
     def __init__(self, cfg: Config, backend: str | None, progress: Callable[[dict], None] = lambda _e: None):
         self.cfg = cfg
@@ -148,12 +153,14 @@ class Runner:
             )
 
         need = int(profile["min_free_vram_gib"] * GIB)
-        dev = accelerator_or_fail(self.client.system_stats())
+        stats = self.client.system_stats()
+        dev = accelerator_or_fail(stats)
         if dev.get("vram_free", 0) < need and self._free_if_idle():
             # ComfyUI's own cached models (e.g. after a cancel) are not another application's memory.
             for _ in range(10):  # /free applies asynchronously (about 1 s on a 7900 XTX)
                 time.sleep(0.3)
-                dev = accelerator_or_fail(self.client.system_stats())
+                stats = self.client.system_stats()
+                dev = accelerator_or_fail(stats)
                 if dev.get("vram_free", 0) >= need:
                     break
         if dev.get("vram_free", 0) < need:
@@ -174,11 +181,39 @@ class Runner:
             if req.preserve_alpha and has_alpha(image)
             else "TW Remove Background"
         )
+        values: dict[str, object] = {"seed": seed, "mask_source": mask_source}
+        values |= {k: v for k, v in profile.items() if k in preset.bindings}
+        values |= {k: v for k, v in mode.items() if k in preset.bindings}
+        values |= {k: v for k, v in req.overrides.items() if k in preset.bindings}
+        # The cache key is resolved *content*, not names: the bound graph, the profile values behind
+        # it, the revisions of the checkpoints it loads, and the backend runtime.
+        graph = workflow.prune(workflow.bind(preset, values), preset.stages[req.stage])
+        profile_sha256 = workflow.sha256_json(profile)
+        models = model_lock.used(graph, values.values())
+        request_sha = workflow.sha256_json(
+            {
+                "backend": self.url,
+                "preset": preset.name,
+                "mode": req.mode.value,
+                "stage": req.stage,
+                "seed": seed,
+                "inputs": input_hashes,
+                "overrides": req.overrides,
+                "mask_source": mask_source,
+                "profile": profile_name,
+                "profile_sha256": profile_sha256,
+                "models": models,
+                "workflow_sha256": workflow.sha256_json(graph),
+                "runtime": runtime_versions(stats),
+            }
+        )
         request = {
             "backend": self.url,
             "preset": preset.name,
             "mode": req.mode.value,
             "profile": profile_name,
+            "profile_sha256": profile_sha256,
+            "models": models,
             "seed": seed,
             "inputs": input_hashes,
             "overrides": req.overrides,
@@ -187,20 +222,19 @@ class Runner:
             "display_name": req.display_name or image.stem,
             "parent_revision": req.parent_revision,
             "reference_rights": req.reference_rights,
-            "allow_oom_fallback": req.allow_oom_fallback,
+            "allow_oom_fallback": req.allow_oom_fallback and not self.cfg.no_oom_fallback,
             "stage": req.stage,
             "mask_source": mask_source,
         }
-        identity = {
-            k: request[k]
-            for k in ("backend", "preset", "mode", "profile", "seed", "inputs", "overrides", "stage", "mask_source")
-        }
-        request_sha = workflow.sha256_json(identity)
         for earlier in self.journal.find_request(request_sha):
-            if earlier.state not in {JobState.failed, JobState.cancelled, JobState.bundle_failed, JobState.lost}:
-                # Same request already in flight or done: reconcile it instead of duplicating work.
-                self.progress({"event": "reuse", "job_id": earlier.job_id, "state": earlier.state.value})
-                return earlier
+            if earlier.state in {JobState.failed, JobState.cancelled, JobState.bundle_failed, JobState.lost}:
+                continue
+            if earlier.state == JobState.published and not self._bundle_intact(earlier):
+                self.journal.event(earlier.job_id, "cache", "published bundle failed verification; recomputing")
+                continue
+            # Same content, same revisions: reconcile it instead of duplicating work.
+            self.progress({"event": "reuse", "job_id": earlier.job_id, "state": earlier.state.value})
+            return earlier
 
         job = Job(
             job_id=uuid.uuid4().hex,
@@ -218,17 +252,10 @@ class Runner:
 
         sub = f"trellis-workbench/{job.job_id}"
         uploaded = self.client.upload_image(image.read_bytes(), f"reference{image.suffix.lower()}", sub)
-        values: dict[str, object] = {
-            "image": f"{uploaded['subfolder']}/{uploaded['name']}",
-            "seed": seed,
-            "mask_source": mask_source,
-        }
+        values["image"] = f"{uploaded['subfolder']}/{uploaded['name']}"
         if mask:
             up = self.client.upload_image(mask.read_bytes(), f"mask{mask.suffix.lower()}", sub)
             values["mask_file"] = f"{up['subfolder']}/{up['name']}"
-        values |= {k: v for k, v in profile.items() if k in preset.bindings}
-        values |= {k: v for k, v in mode.items() if k in preset.bindings}
-        values |= {k: v for k, v in req.overrides.items() if k in preset.bindings}
         api = workflow.prune(workflow.bind(preset, values), preset.stages[req.stage])
         for node in api.values():  # per-job output folder: artifacts never collide across jobs
             prefix = node["inputs"].get("filename_prefix")
@@ -296,10 +323,16 @@ class Runner:
             return self.journal.get(job.job_id)
         if outcome != "success":
             detail = next((json.dumps(m["data"])[:1500] for m in messages if m["type"] == "execution_error"), outcome)
-            self.journal.set_state(job.job_id, JobState.failed, detail)
             if is_oom(messages) and job.request.get("allow_oom_fallback") and job.request["profile"] != "low-memory":
+                self.journal.set_state(job.job_id, JobState.failed, detail)
                 self.journal.event(job.job_id, "oom", "out of GPU memory; retrying once with profile low-memory")
                 return self._oom_retry(job)
+            if is_oom(messages):
+                # Typed failure: a deployment treats OOM as `oom`, never as a quality change.
+                self.journal.event(job.job_id, "oom", "out of GPU memory; fallback disabled")
+                self.journal.set_state(job.job_id, JobState.failed, f"oom: {detail}")
+            else:
+                self.journal.set_state(job.job_id, JobState.failed, detail)
             self._free_if_idle()
             return self.journal.get(job.job_id)
         self.journal.set_state(job.job_id, JobState.succeeded)
@@ -331,6 +364,16 @@ class Runner:
         retry = self.submit(req, preset)
         self.journal.event(job.job_id, "oom-retry", retry.job_id)
         return self.follow(retry.job_id)
+
+    def _bundle_intact(self, job: Job) -> bool:
+        """A published job stays reusable only while its bundle still matches its manifest."""
+        if job.revision is None:
+            return False
+        try:
+            bundlelib.verify(self.root / job.asset_id / f"r{job.revision:04d}")
+        except (bundlelib.BundleError, OSError, ValueError):
+            return False
+        return True
 
     def _free_if_idle(self) -> bool:
         try:

@@ -131,8 +131,14 @@ The browser and the CLI run the same API JSON. ComfyUI's frontend loads API-form
   journal *before* submitting.
 - A lost response or a dropped websocket is therefore always reconciled through `/history/{id}` and
   `/queue`, never by resubmitting.
-- An identical request (same backend, inputs, settings and seed) that is still in flight reuses the
-  journal entry.
+- The request fingerprint is the sha256 of the resolved *content*: the bound workflow, the profile's
+  canonical JSON (never its name), the revisions and sha256 of the checkpoints those bindings load
+  (`src/trellis_workbench/model_lock.json`, the runtime copy of the `inventory.json` model rows), the
+  backend's ComfyUI and pytorch versions, the input sha256s, the parameters and the seed. Changing a
+  model revision or a profile value therefore misses the cache.
+- An identical fingerprint that is still in flight is reconciled. A published one is reused only
+  after its bundle re-verifies against its manifest, so a corrupted or missing output is recomputed
+  rather than served.
 
 **Completion**
 - Completion means `execution_success` and a history entry. A node `executed` event is not completion.
@@ -148,6 +154,8 @@ The browser and the CLI run the same API JSON. ComfyUI's frontend loads API-form
   Otherwise the job is *deferred* and nothing is submitted. Other applications are never evicted.
 - On out-of-memory, the job retries once with the explicit `low-memory` profile (int8_convrot,
   1024/1024 textures, a smaller face budget). That retry is recorded. A second OOM fails.
+- `--no-oom-fallback`, `no_oom_fallback = true`, or `TRELLIS_WORKBENCH_NO_OOM_FALLBACK=1` fails an
+  OOM as a typed `oom:` failure with no retry, so a deployment never trades quality for memory.
 - After a job, `/free` unloads models, but only when the queue is idle.
 
 ## Decision 6 — bundles

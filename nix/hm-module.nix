@@ -16,6 +16,7 @@ self: {
       asset_root = cfg.assetRoot;
       allowed_roots = cfg.allowedRoots;
       license_profile = cfg.licenseProfile;
+      no_oom_fallback = cfg.noOomFallback;
       helper = lib.getExe cfg.package;
     }
     // lib.optionalAttrs (cfg.defaultBackend != null) {default_backend = cfg.defaultBackend;};
@@ -55,6 +56,15 @@ in {
       description = ''
         "mixed" allows TRELLIS.2 generation, whose conditioning needs the DINOv3 encoder
         (DINOv3 License, not OSI). "strict-foss" refuses to generate.
+      '';
+    };
+    noOomFallback = mkOption {
+      type = types.bool;
+      default = false;
+      description = ''
+        Fail an out-of-memory job as a typed `oom` instead of retrying the low-memory profile.
+        Deployments set this (or TRELLIS_WORKBENCH_NO_OOM_FALLBACK=1) so OOM never becomes a
+        quality change.
       '';
     };
     blenderAddon = mkOption {

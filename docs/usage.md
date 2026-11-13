@@ -65,8 +65,14 @@ trellis-workbench bundle inspect <bundle dir>   # verify checksums, print the ma
 trellis-workbench bench --mode accessory --image ref.png --runs 3 --out bench.jsonl
 ```
 
-**Exit codes.** `submit` returns 3 when the backend is *deferred* (not enough free VRAM), and 1 on
-failure.
+**Exit codes.** `submit` returns 3 when the backend is *deferred* (not enough free VRAM), 4 when the
+job failed as a typed OOM (its `detail` starts with `oom:`), and 1 on any other failure.
+
+**OOM behaviour.** By default an out-of-memory failure retries once with the `low-memory` profile; the
+retry is recorded in the journal and the bundle. `--no-oom-fallback`, `no_oom_fallback = true` in
+`config.toml`, or `TRELLIS_WORKBENCH_NO_OOM_FALLBACK=1` in the environment turns that retry off for
+every request, so OOM is a typed `oom:` failure instead of a quality change. Deployment adapters set
+the environment variable.
 
 **`--profile`**
 
