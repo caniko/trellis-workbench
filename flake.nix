@@ -20,7 +20,8 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-parts.follows = "flake-parts";
     };
-    nixpkgs.follows = "harbor-rs/nixpkgs";
+    # ComfyUI >= 0.42 for native MOSS-Image (harbor-rs pins an older nixpkgs).
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
   outputs = inputs @ {

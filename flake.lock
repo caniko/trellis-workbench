@@ -904,10 +904,7 @@
         "flake-parts": "flake-parts",
         "harbor-rs": "harbor-rs",
         "nix-cache-pin": "nix-cache-pin_2",
-        "nixpkgs": [
-          "harbor-rs",
-          "nixpkgs"
-        ],
+        "nixpkgs": "nixpkgs_3",
         "treefmt-nix": "treefmt-nix_7"
       }
     },
@@ -1275,6 +1272,22 @@
       "original": {
         "owner": "numtide",
         "repo": "flake-utils",
+        "type": "github"
+      }
+    },
+    "nixpkgs_3": {
+      "locked": {
+        "lastModified": 1793888838,
+        "narHash": "sha256-T+KoDmrEQAMG4U2siVxPspgO6Esof58jOldQAOjh+fU=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "6f3f202ffe463d3fa2a3e4e5c816d2f2bec052be",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
         "type": "github"
       }
     }
