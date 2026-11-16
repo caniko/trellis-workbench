@@ -7,7 +7,8 @@
       inputs.nixpkgs-lib.follows = "nixpkgs";
     };
     treefmt-nix = {
-      follows = "harbor-rs/treefmt-nix";
+      url = "github:numtide/treefmt-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
     # Only for lib.mkAtticPush (CI publication to the canix Attic cache).
     harbor-rs = {
