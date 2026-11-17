@@ -72,7 +72,11 @@
       # interconnects (InfiniBand verbs, AWS EFA, Omni-Path PSM2, UCX).
       ignoreMissing = ["libibverbs.so.1" "librdmacm.so.1" "libefa.so.1" "libpsm2.so.2" "libucp.so.0"];
       license = [lib.licenses.issl]; # Intel oneAPI runtime wheels
-      preFixup = "";
+      # Intel MPI ships its cluster benchmarks (IMB-*), which torch never runs; patchelf 0.18+
+      # aborts on IMB-MT's layout (shiftFile splitIndex assertion) under addDriverRunpath.
+      preFixup = ''
+        rm -f $out/bin/IMB-*
+      '';
     };
   };
   v = perVariant.${variant};
