@@ -3,6 +3,7 @@
 # When `services.infernix.comfyui` is present in the NixOS configuration, this
 # module configures it on loopback only with offline Hugging Face / Transformers
 # environment variables and the TRELLIS.2 extra-model-paths YAML.
+# Otherwise, it starts its own ComfyUI service with the same settings.
 #
 # Where `proxy.enable` is set, clients reach ComfyUI through a systemd socket
 # bound to `proxy.listenAddress` (FreeBind, so no boot race with dynamic links)
@@ -77,6 +78,11 @@ self: {
       background_removal: background_removal
     ${cfg.extraModelPaths}
   '';
+  offlineEnvironment = {
+    HF_HUB_OFFLINE = "1";
+    TRANSFORMERS_OFFLINE = "1";
+  };
+  stateDir = "/var/lib/trellis-workbench";
 in {
   options.services.trellisWorkbench = {
     enable = mkEnableOption "the TRELLIS.2 ComfyUI backend";
@@ -302,9 +308,43 @@ in {
         port = lib.mkDefault cfg.comfyuiPort;
         inherit extraModelPathsConfig;
         # comfyui-xpu ships its own Level Zero driver and IGC (trellis-workbench #2).
-        environment = {
-          HF_HUB_OFFLINE = "1";
-          TRANSFORMERS_OFFLINE = "1";
+        environment = offlineEnvironment;
+      };
+    })
+
+    (lib.optionalAttrs (!hasInfernixComfyui) {
+      users.users.comfyui = {
+        isSystemUser = true;
+        group = "comfyui";
+        extraGroups = ["render" "video"];
+        home = stateDir;
+      };
+      users.groups.comfyui = {};
+      systemd.tmpfiles.rules = [
+        "d ${stateDir} 0755 comfyui comfyui -"
+        "d ${cfg.modelsDir} 0755 comfyui comfyui -"
+      ];
+      systemd.services.comfyui = {
+        description = "TRELLIS.2 ComfyUI backend";
+        wantedBy = lib.optional (!cfg.proxy.enable) "multi-user.target";
+        environment = offlineEnvironment;
+        serviceConfig = {
+          User = "comfyui";
+          Group = "comfyui";
+          WorkingDirectory = stateDir;
+          ExecStart = lib.escapeShellArgs [
+            "${cfg.package}/bin/comfyui"
+            "--listen"
+            "127.0.0.1"
+            "--port"
+            (toString backendPort)
+            "--base-directory"
+            stateDir
+            "--extra-model-paths-config"
+            (toString extraModelPathsConfig)
+            "--disable-auto-launch"
+          ];
+          Restart = "on-failure";
         };
       };
     })

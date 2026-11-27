@@ -221,6 +221,8 @@
       "test2: onDemand comfyui must not be wantedBy multi-user.target")
     (lib.optionalString (!(lib.hasInfix "/system_stats" (t2Comfy.serviceConfig.ExecStartPost or "")))
       "test2: comfyui must set ExecStartPost healthcheck against /system_stats")
+    (lib.optionalString (!(lib.hasInfix (builtins.unsafeDiscardStringContext "${mockComfyui}/bin/comfyui") (t2Comfy.serviceConfig.ExecStart or "")))
+      "test2: standalone proxy must start the configured ComfyUI package")
     (lib.optionalString (!(lib.elem 8190 t2.networking.firewall.allowedTCPPorts))
       "test2: openFirewall without firewallInterface must open global allowedTCPPorts")
 
@@ -239,6 +241,9 @@
     # Test 4 checks
     (lib.optionalString (failedAssertions t4 != [])
       "test4: unexpected failed assertions: ${lib.concatStringsSep "; " (failedAssertions t4)}")
+    (lib.optionalString (!(lib.elem "multi-user.target" t4.systemd.services.comfyui.wantedBy)
+      || !(lib.hasInfix "--extra-model-paths-config" t4.systemd.services.comfyui.serviceConfig.ExecStart))
+    "test4: standalone ComfyUI without a proxy must start at boot with configured model paths")
     (lib.optionalString (!(t4.services.modelFetch.jobs ? trellis2 && t4.services.modelFetch.jobs ? trellis-birefnet))
       "test4: modelFetch.jobs must populate both trellis2 and trellis-birefnet")
     (lib.optionalString (!(hasDinov3 t4.services.modelFetch.jobs.trellis2.files))
