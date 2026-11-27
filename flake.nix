@@ -85,8 +85,16 @@
           rocm = import ./nix/torch-overlay.nix "rocm";
           xpu = import ./nix/torch-overlay.nix "xpu";
         };
-        lib.runtimeDoctor = import ./nix/runtime-doctor.nix;
+        lib = {
+          runtimeDoctor = import ./nix/runtime-doctor.nix;
+          modelPins = import ./nix/model-pins.nix;
+          trellisModelPins = self.lib.modelPins;
+        };
         homeModules.default = import ./nix/hm-module.nix self;
+        nixosModules = {
+          default = import ./nix/nixos-module.nix self;
+          trellis-workbench = self.nixosModules.default;
+        };
       };
 
       perSystem = {system, ...}: let
@@ -133,6 +141,9 @@
             touch $out
           '';
           blender = pkgs.callPackage ./nix/blender-tests.nix {src = self;};
+          nixos-module-eval = import ./nix/nixos-module-tests.nix {
+            inherit lib nixpkgs pkgs self system;
+          };
           # The prebuilt torch packages must really be the pinned GPU builds.
           torch-wheels-are-pinned-variants = let
             rocm = rocmPkgs.python3Packages.torch;
