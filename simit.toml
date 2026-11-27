@@ -16,6 +16,7 @@ nix_builds = [
   ".#checks.x86_64-linux.cache-pin-wheel-pins-rocm-coverage",
   ".#checks.x86_64-linux.cache-pin-wheel-pins-xpu-coverage",
   ".#checks.x86_64-linux.comfyui-xpu-pins-level-zero-driver",
+  ".#checks.x86_64-linux.nixos-module-eval",
   ".#checks.x86_64-linux.trellis-workbench",
   ".#checks.x86_64-linux.blender",
   ".#packages.x86_64-linux.trellis-workbench-blender-addon",
@@ -37,6 +38,7 @@ static = [
   ".#checks.x86_64-linux.cache-pin-wheel-pins-rocm-coverage",
   ".#checks.x86_64-linux.cache-pin-wheel-pins-xpu-coverage",
   ".#checks.x86_64-linux.comfyui-xpu-pins-level-zero-driver",
+  ".#checks.x86_64-linux.nixos-module-eval",
 ]
 python = [".#checks.x86_64-linux.trellis-workbench"]
 blender = [
